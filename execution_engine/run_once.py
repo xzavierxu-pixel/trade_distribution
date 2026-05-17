@@ -84,7 +84,7 @@ def run_once(config_path: Path, mode: str | None = None, print_json: bool = Fals
     if duplicate_orders:
         plan["skip_reasons"]["duplicate_order_key"] = len(duplicate_orders)
     polymarket_responses: list[dict[str, Any]] = []
-    response_status = "paper_no_submit"
+    response_status = "paper_no_submit" if runtime_mode == "paper" else "no_orders"
     if runtime_mode == "live" and selected_orders:
         live_requests = []
         for order in selected_orders:
