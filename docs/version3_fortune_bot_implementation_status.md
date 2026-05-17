@@ -147,7 +147,7 @@ self-test exercises one no-sleep cycle.
 | systemd timer/service | `deploy/fortune-bot.timer`, `deploy/fortune-bot.service` | Installed on `version3`; `ec2-user` linger enabled; timer enabled and confirmed fired through `2026-05-16T16:30:43Z` |
 | Model coverage >= 0.70 | manifest shows validation `0.7045850261172374` and holdout `0.7363530778164924` | Done |
 | Model accepted accuracy > 0.80 | manifest shows validation `0.7817133443163097` and holdout `0.7854889589905363` | Blocked |
-| version3 backup/clear/deploy | `version3` deployed to `/home/ec2-user/fortune_bot`; two backups exist in `/home/ec2-user/fortune_bot_backups`; timer enabled after smoke; newest local artifact `cac4cb43...` has not been redeployed | Paper-only done; redeploy pending |
+| version3 backup/clear/deploy | Earlier paper-only deploy reached `/home/ec2-user/fortune_bot`; two backups exist in `/home/ec2-user/fortune_bot_backups`; timer enabled after smoke. Redeploy of newest local artifact `cac4cb43...` was attempted but local SSH alias `version3` is currently unresolved. | Paper-only done previously; redeploy blocked by SSH alias |
 | Observe at least 3 paper cycles on server | scheduled paper summaries: `summary_20260516T162026Z.json`, `summary_20260516T162544Z.json`, `summary_20260516T163044Z.json` | Done for runtime scheduling; still uses validation snapshot features |
 
 ## Live Block Rationale
