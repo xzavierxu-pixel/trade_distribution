@@ -19,10 +19,10 @@ def submit_limit_buy_orders(config: PolymarketConfig, orders: list[PolymarketOrd
     if not orders:
         return []
     try:
-        from py_clob_client.client import ClobClient
-        from py_clob_client.clob_types import ApiCreds, OrderArgs, OrderType
+        from py_clob_client_v2.client import ClobClient
+        from py_clob_client_v2.clob_types import ApiCreds, OrderArgs, OrderType
     except Exception as exc:  # pragma: no cover - depends on deployment env
-        raise RuntimeError("py-clob-client is required for live order submission") from exc
+        raise RuntimeError("py-clob-client-v2 is required for live order submission") from exc
 
     private_key = _required_env(config.private_key_env)
     creds = ApiCreds(
@@ -52,9 +52,9 @@ def get_best_bid(config: PolymarketConfig, token_id: str) -> float | None:
     if not token_id:
         return None
     try:
-        from py_clob_client.client import ClobClient
+        from py_clob_client_v2.client import ClobClient
     except Exception as exc:  # pragma: no cover - depends on deployment env
-        raise RuntimeError("py-clob-client is required for live order book lookup") from exc
+        raise RuntimeError("py-clob-client-v2 is required for live order book lookup") from exc
     client = ClobClient(config.host, chain_id=config.chain_id)
     book = client.get_order_book(token_id)
     bids = _extract_book_side(book, "bids")

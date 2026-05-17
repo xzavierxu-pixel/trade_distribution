@@ -58,7 +58,8 @@ tar -xzf "$BUNDLE" -C "$TARGET"
 cd "$TARGET"
 python3 -m venv .venv
 . .venv/bin/activate
-python -m pip install --upgrade pip pandas scikit-learn pyarrow pyyaml py-clob-client
+python -m pip install --upgrade pip
+python -m pip install -r requirements.txt
 
 if [ ! -f config.yaml ]; then
   cp config.example.yaml config.yaml

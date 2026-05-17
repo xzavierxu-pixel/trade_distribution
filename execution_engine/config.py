@@ -64,7 +64,7 @@ class PolymarketConfig:
     api_key_env: str = "CLOB_API_KEY"
     api_secret_env: str = "CLOB_SECRET"
     api_passphrase_env: str = "CLOB_PASS_PHRASE"
-    funder_env: str = "DEPOSIT_WALLET_ADDRESS"
+    funder_env: str = "POLYMARKET_FUNDER"
 
 
 @dataclass(frozen=True)
@@ -135,7 +135,7 @@ def load_engine_config(path: str | Path) -> EngineConfig:
             api_key_env=str(polymarket.get("api_key_env", "CLOB_API_KEY")),
             api_secret_env=str(polymarket.get("api_secret_env", "CLOB_SECRET")),
             api_passphrase_env=str(polymarket.get("api_passphrase_env", "CLOB_PASS_PHRASE")),
-            funder_env=str(polymarket.get("funder_env", "DEPOSIT_WALLET_ADDRESS")),
+            funder_env=str(polymarket.get("funder_env", "POLYMARKET_FUNDER")),
         ),
     )
 

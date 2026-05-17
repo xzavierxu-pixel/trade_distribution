@@ -53,4 +53,4 @@ polymarket:
   api_key_env: CLOB_API_KEY
   api_secret_env: CLOB_SECRET
   api_passphrase_env: CLOB_PASS_PHRASE
-  funder_env: DEPOSIT_WALLET_ADDRESS
+  funder_env: POLYMARKET_FUNDER

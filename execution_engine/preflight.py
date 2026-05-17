@@ -52,11 +52,12 @@ def run_preflight(config_path: Path, mode: str = "paper") -> dict[str, Any]:
         checks["manifest_allows_live"] = bool(manifest.get("live_eligible"))
         checks["credentials_present_for_live"] = all(credential_presence.values())
         checks["signature_type_1"] = cfg.polymarket.signature_type == 1
-        checks["deposit_wallet_env_used"] = cfg.polymarket.funder_env == "DEPOSIT_WALLET_ADDRESS"
+        checks["type1_proxy_funder_env_used"] = cfg.polymarket.funder_env == "POLYMARKET_FUNDER"
         funder = os.getenv(cfg.polymarket.funder_env, "")
-        checks["deposit_wallet_format_valid"] = bool(re.fullmatch(r"0x[a-fA-F0-9]{40}", funder))
-        checks["py_clob_client_available"] = importlib.util.find_spec("py_clob_client") is not None
-        checks["py_builder_relayer_client_available"] = importlib.util.find_spec("py_builder_relayer_client") is not None
+        checks["funder_format_valid"] = bool(re.fullmatch(r"0x[a-fA-F0-9]{40}", funder))
+        checks["py_clob_client_v2_available"] = importlib.util.find_spec("py_clob_client_v2") is not None
+        if cfg.polymarket.signature_type == 3:
+            checks["py_builder_relayer_client_available"] = importlib.util.find_spec("py_builder_relayer_client") is not None
     else:
         checks["orders_disabled_by_default"] = not cfg.orders.enabled
         checks["runtime_mode_paper"] = cfg.runtime.mode == "paper"

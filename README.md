@@ -89,6 +89,7 @@ execution_engine/deploy/<model_version>/diagnostics/
 ```yaml
 polymarket:
   signature_type: 1
+  funder_env: POLYMARKET_FUNDER
 ```
 
 Paper mode remains the default and orders are disabled by default.

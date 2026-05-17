@@ -86,6 +86,7 @@ runtime.mode=live
 artifact_manifest.live_eligible=true
 required Polymarket credentials present in the environment
 polymarket.signature_type=1
+polymarket.funder_env=POLYMARKET_FUNDER
 ```
 
 If `orders.enabled` is false or the artifact is not live eligible, `run_once`

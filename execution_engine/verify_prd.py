@@ -393,8 +393,8 @@ def _check_bundle_text_contracts(bundle: Path, names: list[str], findings: list[
         findings.append({"level": "error", "item": "config.example.yaml.orders.enabled", "message": "orders must default to disabled"})
     if "signature_type: 1" not in config_text:
         findings.append({"level": "error", "item": "config.example.yaml.polymarket.signature_type", "message": "polymarket.signature_type must default to 1"})
-    if "funder_env: DEPOSIT_WALLET_ADDRESS" not in config_text:
-        findings.append({"level": "error", "item": "config.example.yaml.polymarket.funder_env", "message": "deposit-wallet flow must use DEPOSIT_WALLET_ADDRESS"})
+    if "funder_env: POLYMARKET_FUNDER" not in config_text:
+        findings.append({"level": "error", "item": "config.example.yaml.polymarket.funder_env", "message": "signature_type=1 proxy flow must use POLYMARKET_FUNDER"})
     if "--mode paper" not in service_text:
         findings.append({"level": "error", "item": "fortune-bot.service", "message": "systemd service must run paper mode by default"})
     for expected in ["verify_prd", "self_test", "preflight", "run_once --config config.yaml --mode paper", "observe_paper"]:
@@ -412,7 +412,7 @@ def _check_bundle_text_contracts(bundle: Path, names: list[str], findings: list[
 
 SECRET_PATTERNS = [
     re.compile(r"(?i)(private[_-]?key|clob[_-]?secret|clob[_-]?api[_-]?key|pass[_-]?phrase|deposit[_-]?wallet[_-]?address)\s*[:=]\s*['\"][^'\"]{12,}['\"]"),
-    re.compile(r"(?i)(POLYMARKET_PRIVATE_KEY|CLOB_SECRET|CLOB_API_KEY|CLOB_PASS_PHRASE|DEPOSIT_WALLET_ADDRESS)\s*=\s*[^ \r\n]{12,}"),
+    re.compile(r"(?i)(POLYMARKET_PRIVATE_KEY|CLOB_SECRET|CLOB_API_KEY|CLOB_PASS_PHRASE|DEPOSIT_WALLET_ADDRESS|POLYMARKET_FUNDER)\s*=\s*[^ \r\n]{12,}"),
 ]
 
 
