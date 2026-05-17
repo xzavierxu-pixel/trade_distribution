@@ -34,7 +34,7 @@ def run_once(config_path: Path, mode: str | None = None, print_json: bool = Fals
     row, feature_source = load_feature_row(cfg, manifest, feature_columns)
     x = pd.DataFrame([{col: row.get(col, 0.0) for col in feature_columns}])
     p_up = float(model.predict_proba(x)[:, 1][0])
-    thresholds = manifest["thresholds"]
+    thresholds = _effective_thresholds(cfg, manifest)
     pred = int(apply_policy(pd.Series([p_up]).to_numpy(), float(thresholds["t_up"]), float(thresholds["t_down"]))[0])
     decision = "abstain" if pred < 0 else ("up" if pred == 1 else "down")
     probability_reference = _read_json_if_exists(artifact_dir / str(manifest.get("probability_reference_file") or ""))
@@ -128,6 +128,17 @@ def _read_json_if_exists(path: Path) -> dict[str, Any] | None:
     if path.exists() and path.is_file():
         return json.loads(path.read_text(encoding="utf-8"))
     return None
+
+
+def _effective_thresholds(cfg: Any, manifest: dict[str, Any]) -> dict[str, float]:
+    manifest_thresholds = manifest["thresholds"]
+    t_up = cfg.thresholds.t_up if cfg.thresholds.t_up is not None else manifest_thresholds["t_up"]
+    t_down = cfg.thresholds.t_down if cfg.thresholds.t_down is not None else manifest_thresholds["t_down"]
+    return {
+        "t_up": float(t_up),
+        "t_down": float(t_down),
+        "min_coverage": float(manifest_thresholds.get("min_coverage", 0.0)),
+    }
 
 
 def _token_id_for_side(row: pd.Series, decision: str) -> str | None:

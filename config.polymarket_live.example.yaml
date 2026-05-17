@@ -15,8 +15,8 @@ features:
   source_is_sell_only: false
 
 thresholds:
-  t_up: null
-  t_down: null
+  t_up: 0.51
+  t_down: 0.49
 
 orders:
   enabled: false

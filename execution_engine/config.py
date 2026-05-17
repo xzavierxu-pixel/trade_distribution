@@ -48,6 +48,12 @@ class FeaturesConfig:
 
 
 @dataclass(frozen=True)
+class ThresholdsConfig:
+    t_up: float | None = None
+    t_down: float | None = None
+
+
+@dataclass(frozen=True)
 class BaselineConfig:
     artifact_dir: Path
     manifest_file: str = "artifact_manifest.json"
@@ -72,6 +78,7 @@ class EngineConfig:
     baseline: BaselineConfig
     runtime: RuntimeConfig
     features: FeaturesConfig = FeaturesConfig()
+    thresholds: ThresholdsConfig = ThresholdsConfig()
     orders: OrdersConfig = OrdersConfig()
     polymarket: PolymarketConfig = PolymarketConfig()
 
@@ -81,6 +88,7 @@ def load_engine_config(path: str | Path) -> EngineConfig:
     baseline = raw.get("baseline", {})
     runtime = raw.get("runtime", {})
     features = raw.get("features", {})
+    thresholds = raw.get("thresholds", {})
     orders = raw.get("orders", {})
     polymarket = raw.get("polymarket", {})
     if "artifact_dir" not in baseline:
@@ -101,6 +109,10 @@ def load_engine_config(path: str | Path) -> EngineConfig:
             path=Path(str(features["path"])) if features.get("path") else None,
             feature_window_seconds=int(features.get("feature_window_seconds", 120)),
             source_is_sell_only=bool(features.get("source_is_sell_only", False)),
+        ),
+        thresholds=ThresholdsConfig(
+            t_up=float(thresholds["t_up"]) if thresholds.get("t_up") is not None else None,
+            t_down=float(thresholds["t_down"]) if thresholds.get("t_down") is not None else None,
         ),
         orders=OrdersConfig(
             enabled=bool(orders.get("enabled", False)),
