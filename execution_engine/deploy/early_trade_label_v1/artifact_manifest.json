@@ -1,7 +1,7 @@
 {
   "project": "btc-polymarket-5m-maker",
   "model_version": "early_trade_label_v1",
-  "created_at_utc": "2026-05-17T03:23:36.515536+00:00",
+  "created_at_utc": "2026-05-17T03:38:04.420512+00:00",
   "live_eligible": false,
   "deployment_status": "paper_only_blocked",
   "blocked_reasons": [
@@ -24,24 +24,24 @@
   "probability_reference_file": "probability_reference.json",
   "maker_fill_table_file": "maker_fill_table.csv",
   "thresholds": {
-    "t_up": 0.62,
-    "t_down": 0.3,
+    "t_up": 0.635,
+    "t_down": 0.38,
     "min_coverage": 0.7,
     "min_accepted_sample_accuracy": 0.8
   },
   "validation_metrics": {
     "coverage": 0.7045850261172374,
-    "accepted_sample_accuracy": 0.7775947281713345,
+    "accepted_sample_accuracy": 0.7817133443163097,
     "accepted_count": 1214,
-    "up_prediction_count": 656,
-    "down_prediction_count": 558
+    "up_prediction_count": 598,
+    "down_prediction_count": 616
   },
   "holdout_metrics": {
-    "coverage": 0.7375145180023229,
-    "accepted_sample_accuracy": 0.7952755905511811,
-    "accepted_count": 635,
-    "up_prediction_count": 355,
-    "down_prediction_count": 280
+    "coverage": 0.7363530778164924,
+    "accepted_sample_accuracy": 0.7854889589905363,
+    "accepted_count": 634,
+    "up_prediction_count": 325,
+    "down_prediction_count": 309
   },
   "decision_policy": {
     "coverage_constraint_satisfied": true
@@ -53,22 +53,22 @@
     "maker_only": true
   },
   "files": {
-    "evaluation.json": "b0ec26729ce92c2624a62873af2191bb393da1b386edc14fa6d6594a5fdfdeb7",
-    "false_down_slices.csv": "2a2966610ae7387bc8f9bbfb1739195aa4be585fdadbece13810cc2572ecdecb",
-    "false_up_slices.csv": "ada67853e0383b1a152d8c46e992ca81b5814c60b7f62e339c55982dfcc6f5b2",
+    "evaluation.json": "b49c8e18e9fb61bf82bac80e4f98c0dc100dc9b326fbb0a920015746d5ef2473",
+    "false_down_slices.csv": "d089d83a997d123ae2db37dffd8ee6f3b8f4fd677f3f850060a5e83fdc29533c",
+    "false_up_slices.csv": "e2bec0293897494084367b27a77776ea94ce29f3045bd13d7a648b341c5967a3",
     "feature_columns.json": "36362078ffcbbca8bfe3aa76f3833e2502ece580a0aecd5d5ed690e3c5d8a684",
     "features_holdout.parquet": "7d280e0715c4fef09325270d30e237f4f95142ea6b308c93c19b1cfaf106148e",
     "features_validation.parquet": "599b416171b31b070ed1024e9924f8d7e7600a51fa0a0a1c033b510d537d8b5f",
     "maker_fill_table.csv": "28c0fcca270ca5bef6855f79750ba0791417832c1fb3fabbc3f3e79665ab8f4e",
-    "metrics.json": "b0ec26729ce92c2624a62873af2191bb393da1b386edc14fa6d6594a5fdfdeb7",
-    "model.pkl": "c67f060573e5a030d1eeb0631f61d9b21feee8117b1a2bc2dd3f509561c91320",
-    "predictions_holdout.csv": "859079a0e9bcb718c8446aaeda66c03b190ec536ef96b92f23c45db2bc37dfbe",
-    "probability_deciles.csv": "a48cbd36078fddb57f05de0371a5d67037e998bf103d120c01289a6dc55e50b0",
-    "probability_reference.json": "0e5f2e53696fea38a83c84d6abcfcd74e7c424cdda688fab1c5693c9834044a7",
-    "regime_slices.csv": "c5900b4532cb3850b4948ab13a170ba2cdb2f6879dcb7e8e3eb25f72b86721cf",
-    "threshold_search.json": "4267618706cf3075fb93781af9096b7b9f5ee4f0814c5d660378a3de07a84d27",
-    "tuning_candidates.csv": "315c3f0c1bbffe3affeb64b3c799d662f94095c2a631b271e6616e383bb3b657",
-    "tuning_report.json": "4d43a66e6414a1257e35a6f99a092ccbb68b3301b02d0c3a7175d1a814ae937c"
+    "metrics.json": "b49c8e18e9fb61bf82bac80e4f98c0dc100dc9b326fbb0a920015746d5ef2473",
+    "model.pkl": "fe34509793f7669f9a666173b612d2d41f7b834d31b6ad94be640efb59d70190",
+    "predictions_holdout.csv": "0396dd83c18f8723811b7b1b8754fc4014d46dd081cdf18eaec647639385f612",
+    "probability_deciles.csv": "7aa27dc588f945c30a8c83f7f80327dc86c619f8e6226c215c0b4b570d6eb313",
+    "probability_reference.json": "a3fa8982f58ec9413a22c91d0aa268333e0c5c46440bb7440f3b0aa3270eda20",
+    "regime_slices.csv": "1d16473ad1c8527bd7575c4839f8858d909e29f4f42008eab52fc0b396b58ce4",
+    "threshold_search.json": "6d995094226eabe4b17f127ed7a9ccb8eb90a9e620ff0cda3205298e35f881c6",
+    "tuning_candidates.csv": "66ffc5a3fedb1368698404b160274dc0391d59e6b45f156d8d1718589b5e8bfa",
+    "tuning_report.json": "5abedc98fcddd00cf0684d6275b108a63f89883d3c36acc9087f3741e0d76f8a"
   },
-  "artifact_hash": "1a2ec9c7c99f82dd3d7378104fb8a88436ec82e0a675fdddf7ea89bcec410f62"
+  "artifact_hash": "3c22c74bd9ea3b80ad7d25af9747ad8de72580299ac44daec24c2f021b9a8cad"
 }

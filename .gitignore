@@ -30,6 +30,8 @@ analysis_clean/
 *.pkl
 *.parquet
 dist/
+models/early_trade_label_7d_full/
+models/early_trade_label_v1_audit/
 
 # Local editor/OS files
 .DS_Store
