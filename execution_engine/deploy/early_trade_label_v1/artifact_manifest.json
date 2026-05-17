@@ -1,7 +1,7 @@
 {
   "project": "btc-polymarket-5m-maker",
   "model_version": "early_trade_label_v1",
-  "created_at_utc": "2026-05-17T03:46:39.119915+00:00",
+  "created_at_utc": "2026-05-17T04:26:38.848197+00:00",
   "live_eligible": false,
   "deployment_status": "paper_only_blocked",
   "blocked_reasons": [
@@ -24,24 +24,24 @@
   "probability_reference_file": "probability_reference.json",
   "maker_fill_table_file": "maker_fill_table.csv",
   "thresholds": {
-    "t_up": 0.635,
-    "t_down": 0.38,
+    "t_up": 0.625,
+    "t_down": 0.375,
     "min_coverage": 0.7,
     "min_accepted_sample_accuracy": 0.8
   },
   "validation_metrics": {
-    "coverage": 0.7045850261172374,
-    "accepted_sample_accuracy": 0.7817133443163097,
-    "accepted_count": 1214,
-    "up_prediction_count": 598,
-    "down_prediction_count": 616
+    "coverage": 0.7080673244341266,
+    "accepted_sample_accuracy": 0.7868852459016393,
+    "accepted_count": 1220,
+    "up_prediction_count": 621,
+    "down_prediction_count": 599
   },
   "holdout_metrics": {
-    "coverage": 0.7363530778164924,
-    "accepted_sample_accuracy": 0.7854889589905363,
-    "accepted_count": 634,
-    "up_prediction_count": 325,
-    "down_prediction_count": 309
+    "coverage": 0.7317073170731707,
+    "accepted_sample_accuracy": 0.7888888888888889,
+    "accepted_count": 630,
+    "up_prediction_count": 326,
+    "down_prediction_count": 304
   },
   "decision_policy": {
     "coverage_constraint_satisfied": true
@@ -53,22 +53,24 @@
     "maker_only": true
   },
   "files": {
-    "evaluation.json": "b73cfc5b99587731bcc32d9e23851cc5e5386881c0126ff914b9ad88c0e4791e",
-    "false_down_slices.csv": "8c730e04bc5b9184457564057065d4da4362e527e0e38fec34c944afe125afd3",
-    "false_up_slices.csv": "13d83f31572896768e1c9f239a61bc03f77d2290727b956bff4e41115c2bdff5",
-    "feature_columns.json": "36362078ffcbbca8bfe3aa76f3833e2502ece580a0aecd5d5ed690e3c5d8a684",
-    "features_holdout.parquet": "7d280e0715c4fef09325270d30e237f4f95142ea6b308c93c19b1cfaf106148e",
-    "features_validation.parquet": "599b416171b31b070ed1024e9924f8d7e7600a51fa0a0a1c033b510d537d8b5f",
-    "maker_fill_table.csv": "28c0fcca270ca5bef6855f79750ba0791417832c1fb3fabbc3f3e79665ab8f4e",
-    "metrics.json": "b73cfc5b99587731bcc32d9e23851cc5e5386881c0126ff914b9ad88c0e4791e",
-    "model.pkl": "fe34509793f7669f9a666173b612d2d41f7b834d31b6ad94be640efb59d70190",
-    "predictions_holdout.csv": "c3a40560492bbb07fbb48ff4cf0bbd9ce9913aa5679476994662d5eaacd8cd4e",
-    "probability_deciles.csv": "8f72a22d08c26412d1f18335b513f450f8ae3e2b732b77a561eb1695eef92e40",
-    "probability_reference.json": "c0e5c5ba8a4e599c3bb26d702c852dc13cf5104f0583f768348541a664372910",
-    "regime_slices.csv": "1d16473ad1c8527bd7575c4839f8858d909e29f4f42008eab52fc0b396b58ce4",
-    "threshold_search.json": "6d995094226eabe4b17f127ed7a9ccb8eb90a9e620ff0cda3205298e35f881c6",
-    "tuning_candidates.csv": "66ffc5a3fedb1368698404b160274dc0391d59e6b45f156d8d1718589b5e8bfa",
-    "tuning_report.json": "5abedc98fcddd00cf0684d6275b108a63f89883d3c36acc9087f3741e0d76f8a"
+    "evaluation.json": "954f9598bdd03ca998c109a698a043705d9a9e8bad7d23ac8e5cd3fd1309c89c",
+    "false_down_slices.csv": "abd42210675fa40dacf4f36b56b09594248d67026259248d16f652cae5309602",
+    "false_up_slices.csv": "c2f40430936b816032a63649f659ada2db3b7e4cc7ca5cc9c25d3b82605d88b7",
+    "feature_columns.json": "03c48d0e232676a5988c15eed426113d518c580f6a91d9cefb71e9c7618bdfdf",
+    "features_holdout.parquet": "e34147e63c57098e6292104af494283b88fbae6b1364112d88be5853ef8021fe",
+    "features_validation.parquet": "0ccc63c71b77914c2295d957a02b9c5b2e5b128e1c7e366fbca955b08327f97b",
+    "maker_fill_table.csv": "9f52b9a20428232fb19e177d2a1b58904add2b38cca7cc2af7bbfe9f3a0e1e2a",
+    "maker_fill_table_metadata.json": "2469aab9cc92aec83e56111540bb882686e88f2cb7ea457da23099fd0a4718ed",
+    "maker_fill_table_summary.csv": "8d8e41256ebf77cc92fb56b70e7408d0e4ac4c85b8efd2c69f80a412ca2be2fb",
+    "metrics.json": "954f9598bdd03ca998c109a698a043705d9a9e8bad7d23ac8e5cd3fd1309c89c",
+    "model.pkl": "d4b4ceeec7cf2e1d58bee116a14424041acf57806e94be43e700253bc74bff6d",
+    "predictions_holdout.csv": "f9ffcfc202073c96e4429a88cb6a826648c3bc41e40b1b089ca46f13c40574ff",
+    "probability_deciles.csv": "0f6c7ab90412c4550a65c2269203afad48632b74cf9b1cba4180dd5c8fd29fcf",
+    "probability_reference.json": "3214311e6ce80f347b7d31c81e04c992dccc825801bb0da47d50e32d5b452c7f",
+    "regime_slices.csv": "f5684221bb0f1518c2cf7f6198307daaadc68b2cd492e15b9b695713ce4f1958",
+    "threshold_search.json": "6852501b6d241bc6eb9b81968305b5dc6f14c400f92ef59ec609e3c96f7acf98",
+    "tuning_candidates.csv": "523cf6e7cae5be79221b575099773b85165b48d4ac8eb416ed83357d03c9e980",
+    "tuning_report.json": "5e944efb5c546253f7d196eeb514e1d6e2296f685f04eb6eaa36fb28efab7918"
   },
-  "artifact_hash": "cac4cb43ea2e6d6e38cbf17b9020b9948fc12a3d56cd0cb7c4820b3174ab6dea"
+  "artifact_hash": "dbb81dc03673e985c05c08caa08c89b54eb04a6e39f09c3fb5e85132ceb886ea"
 }

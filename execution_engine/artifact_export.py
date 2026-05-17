@@ -55,6 +55,11 @@ def export_artifact(
         maker_dst = target / ("maker_fill_table.parquet" if maker_fill_table.suffix.lower() == ".parquet" else "maker_fill_table.csv")
         if maker_fill_table.resolve() != maker_dst.resolve():
             _copy_file(maker_fill_table, maker_dst)
+        for suffix in ["_summary.csv", "_metadata.json"]:
+            sidecar = maker_fill_table.with_name(maker_fill_table.stem + suffix)
+            if sidecar.exists():
+                _copy_file(sidecar, target / ("maker_fill_table" + suffix))
+                copied.append("maker_fill_table" + suffix)
     else:
         maker_dst = target / "maker_fill_table.csv"
         maker_dst.write_text("", encoding="utf-8")

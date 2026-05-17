@@ -98,7 +98,7 @@ def build_order_plan(
     rows = lookup_rows(maker_fill_table, side, decision_bucket, price_bucket)
     candidates = []
     for row in rows:
-        raw_price = float(row["limit_price"])
+        raw_price = float(row.get("limit_price_anchor", row.get("limit_price")))
         price = floor_to_tick(raw_price, limits.tick_size)
         if not limits.min_price <= price <= limits.max_price:
             continue
@@ -107,15 +107,19 @@ def build_order_plan(
             continue
         a_win = float(row["a_win_market_fill"])
         order_edge = edge(q, a_win, price)
-        key = f"{market_key}:{side}:{int(row['order_delay_seconds'])}:{price:.4f}"
+        order_delay = int(row.get("submit_second_anchor", row.get("order_delay_seconds")))
+        key = f"{market_key}:{side}:{order_delay}:{price:.4f}"
         candidates.append(
             {
                 "order_key": key,
                 "prediction_side": side,
-                "decision_second_bucket": str(row["decision_second_bucket"]),
+                "decision_second_bucket": str(row.get("decision_time_regime", row.get("decision_second_bucket"))),
+                "decision_time_regime": str(row.get("decision_time_regime", row.get("decision_second_bucket"))),
                 "current_price_bucket": str(row["current_price_bucket"]),
-                "order_delay_seconds": int(row["order_delay_seconds"]),
+                "order_delay_seconds": order_delay,
+                "submit_second_anchor": order_delay,
                 "limit_price": round(price, 4),
+                "limit_price_anchor": raw_price,
                 "raw_limit_price": raw_price,
                 "a_win_market_fill": a_win,
                 "a_lose_market_fill": float(row.get("a_lose_market_fill", 1.0)),
@@ -143,20 +147,18 @@ def build_order_plan(
 
 def lookup_rows(table: pd.DataFrame, side: str, decision_bucket: str, price_bucket: str) -> list[dict[str, Any]]:
     side_rows = table[table["prediction_side"].astype(str).str.lower().eq(side)].copy()
-    exact = side_rows[
-        side_rows["decision_second_bucket"].astype(str).eq(decision_bucket)
-        & side_rows["current_price_bucket"].astype(str).eq(price_bucket)
-    ]
+    decision_col = "decision_time_regime" if "decision_time_regime" in side_rows.columns else "decision_second_bucket"
+    exact = side_rows[side_rows[decision_col].astype(str).eq(decision_bucket) & side_rows["current_price_bucket"].astype(str).eq(price_bucket)]
     if not exact.empty:
         return dedupe_candidate_rows(exact.to_dict("records"))
-    fallback = side_rows[side_rows["fallback_level"].astype(str).isin(["side_delay_price", "global"])]
+    fallback = side_rows[side_rows["fallback_level"].astype(str).isin(["side_delay_price", "global", "level_4_side_price010", "level_5_side_time60", "level_6_side_global"])]
     return dedupe_candidate_rows(fallback.to_dict("records"))
 
 
 def dedupe_candidate_rows(rows: list[dict[str, Any]]) -> list[dict[str, Any]]:
     best: dict[tuple[int, float], dict[str, Any]] = {}
     for row in rows:
-        key = (int(row["order_delay_seconds"]), float(row["limit_price"]))
+        key = (int(row.get("submit_second_anchor", row.get("order_delay_seconds"))), float(row.get("limit_price_anchor", row.get("limit_price"))))
         previous = best.get(key)
         if previous is None or _row_rank(row) > _row_rank(previous):
             best[key] = row
@@ -164,8 +166,19 @@ def dedupe_candidate_rows(rows: list[dict[str, Any]]) -> list[dict[str, Any]]:
 
 
 def _row_rank(row: dict[str, Any]) -> tuple[int, int, float]:
-    fallback_rank = {"fine": 3, "side_delay_price": 2, "global": 1}.get(str(row.get("fallback_level")), 0)
-    is_any_bucket = int(str(row.get("decision_second_bucket")) == "any" and str(row.get("current_price_bucket")) == "any")
+    fallback_rank = {
+        "level_0_side_time30_price005": 8,
+        "fine": 8,
+        "level_1_side_time60_price005": 7,
+        "level_2_side_time30_price010": 6,
+        "level_3_side_time60_price010": 5,
+        "level_4_side_price010": 4,
+        "side_delay_price": 4,
+        "level_5_side_time60": 3,
+        "level_6_side_global": 2,
+        "global": 1,
+    }.get(str(row.get("fallback_level")), 0)
+    is_any_bucket = int(str(row.get("decision_time_regime", row.get("decision_second_bucket"))) == "any" and str(row.get("current_price_bucket")) == "any")
     return (fallback_rank, is_any_bucket, float(row.get("win_market_count", 0)) + float(row.get("lose_market_count", 0)))
 
 
@@ -215,16 +228,14 @@ def summarize_skips(candidates: list[dict[str, Any]], selected: list[dict[str, A
 
 
 def bucket_second(second: int) -> str:
-    if second < 90:
-        return "lt90"
-    if second < 120:
-        return "90_119"
-    if second < 150:
-        return "120_149"
-    return "150_plus"
+    start = min(270, max(0, int(second // 30) * 30))
+    end = min(start + 30, 300)
+    right = "]" if end >= 300 else ")"
+    return f"[{start},{end}{right}"
 
 
 def bucket_price(price: float) -> str:
     lo = max(0, min(95, int(math.floor(price / 0.05)) * 5))
-    hi = lo + 5
-    return f"{lo / 100:.2f}_{hi / 100:.2f}"
+    hi = min(lo + 5, 100)
+    right = "]" if hi >= 100 else ")"
+    return f"[{lo / 100:.2f},{hi / 100:.2f}{right}"

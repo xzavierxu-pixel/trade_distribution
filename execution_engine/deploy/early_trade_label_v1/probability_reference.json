@@ -1,95 +1,95 @@
 {
-  "train_p_up_mean": 0.5016114273397723,
-  "validation_p_up_mean": 0.49330754407980854,
+  "train_p_up_mean": 0.5017617706272711,
+  "validation_p_up_mean": 0.49353736775420615,
   "train_rows": 6031,
   "validation_rows": 1723,
   "accepted_accuracy_by_bucket": [
     {
       "decile": 0,
-      "p_up_min": 0.008361371961371962,
-      "p_up_max": 0.1351763848896202,
-      "p_up_mean": 0.08169395706826227,
-      "actual_up_rate": 0.08670520231213873,
+      "p_up_min": 0.014086446886446885,
+      "p_up_max": 0.14132232195908667,
+      "p_up_mean": 0.08325468436332063,
+      "actual_up_rate": 0.09826589595375723,
       "accepted_rate": 1.0,
-      "accepted_accuracy": 0.9132947976878613
+      "accepted_accuracy": 0.9017341040462428
     },
     {
       "decile": 1,
-      "p_up_min": 0.13669485677720977,
-      "p_up_max": 0.2426052447552448,
-      "p_up_mean": 0.1962002700429,
-      "actual_up_rate": 0.22093023255813954,
+      "p_up_min": 0.1414265704367872,
+      "p_up_max": 0.24082755149047713,
+      "p_up_mean": 0.1949336096582212,
+      "actual_up_rate": 0.1744186046511628,
       "accepted_rate": 1.0,
-      "accepted_accuracy": 0.7790697674418605
+      "accepted_accuracy": 0.8255813953488372
     },
     {
       "decile": 2,
-      "p_up_min": 0.24393118798985677,
-      "p_up_max": 0.32142233942528053,
-      "p_up_mean": 0.28255827916063214,
-      "actual_up_rate": 0.29651162790697677,
+      "p_up_min": 0.24153553697764235,
+      "p_up_max": 0.32366072670249124,
+      "p_up_mean": 0.28331866779253667,
+      "actual_up_rate": 0.313953488372093,
       "accepted_rate": 1.0,
-      "accepted_accuracy": 0.7034883720930233
+      "accepted_accuracy": 0.686046511627907
     },
     {
       "decile": 3,
-      "p_up_min": 0.32153655301526834,
-      "p_up_max": 0.4092475503550615,
-      "p_up_mean": 0.3698820185753705,
-      "actual_up_rate": 0.37209302325581395,
-      "accepted_rate": 0.5755813953488372,
-      "accepted_accuracy": 0.6666666666666666
+      "p_up_min": 0.3241671895613846,
+      "p_up_max": 0.4160220975532892,
+      "p_up_mean": 0.3729948985833155,
+      "actual_up_rate": 0.4069767441860465,
+      "accepted_rate": 0.47674418604651164,
+      "accepted_accuracy": 0.6341463414634146
     },
     {
       "decile": 4,
-      "p_up_min": 0.4093134665300299,
-      "p_up_max": 0.4873619813536995,
-      "p_up_mean": 0.4452009540542522,
-      "actual_up_rate": 0.5144508670520231,
+      "p_up_min": 0.41611369627104916,
+      "p_up_max": 0.4834454612381084,
+      "p_up_mean": 0.44955998522042245,
+      "actual_up_rate": 0.48554913294797686,
       "accepted_rate": 0.0,
       "accepted_accuracy": null
     },
     {
       "decile": 5,
-      "p_up_min": 0.48769170580021964,
-      "p_up_max": 0.5910804823259632,
-      "p_up_mean": 0.5379882136890582,
-      "actual_up_rate": 0.5406976744186046,
+      "p_up_min": 0.48361106245835367,
+      "p_up_max": 0.5886287963670316,
+      "p_up_mean": 0.5340003739323126,
+      "actual_up_rate": 0.5348837209302325,
       "accepted_rate": 0.0,
       "accepted_accuracy": null
     },
     {
       "decile": 6,
-      "p_up_min": 0.5916451237101396,
-      "p_up_max": 0.665881073458705,
-      "p_up_mean": 0.6311152211331761,
-      "actual_up_rate": 0.6453488372093024,
-      "accepted_rate": 0.47093023255813954,
-      "accepted_accuracy": 0.7037037037037037
+      "p_up_min": 0.5891913398692812,
+      "p_up_max": 0.6639246126594422,
+      "p_up_mean": 0.6304977413630438,
+      "actual_up_rate": 0.6569767441860465,
+      "accepted_rate": 0.6046511627906976,
+      "accepted_accuracy": 0.75
     },
     {
       "decile": 7,
-      "p_up_min": 0.6661952398908282,
-      "p_up_max": 0.7381836163320684,
-      "p_up_mean": 0.7004054946986941,
-      "actual_up_rate": 0.6802325581395349,
+      "p_up_min": 0.664304897905672,
+      "p_up_max": 0.7419072886264066,
+      "p_up_mean": 0.6988136513837743,
+      "actual_up_rate": 0.7093023255813954,
       "accepted_rate": 1.0,
-      "accepted_accuracy": 0.6802325581395349
+      "accepted_accuracy": 0.7093023255813954
     },
     {
       "decile": 8,
-      "p_up_min": 0.7382517972223855,
-      "p_up_max": 0.830557460839814,
-      "p_up_mean": 0.7806561029339757,
-      "actual_up_rate": 0.7732558139534884,
+      "p_up_min": 0.7420224269452598,
+      "p_up_max": 0.8253491493800318,
+      "p_up_mean": 0.7785783496756381,
+      "actual_up_rate": 0.75,
       "accepted_rate": 1.0,
-      "accepted_accuracy": 0.7732558139534884
+      "accepted_accuracy": 0.75
     },
     {
       "decile": 9,
-      "p_up_min": 0.8315583901306812,
-      "p_up_max": 0.9902723720723722,
-      "p_up_mean": 0.9076388184109843,
+      "p_up_min": 0.8258792754630987,
+      "p_up_max": 0.9957817460317461,
+      "p_up_mean": 0.9096435405296465,
       "actual_up_rate": 0.9421965317919075,
       "accepted_rate": 1.0,
       "accepted_accuracy": 0.9421965317919075

@@ -36,17 +36,19 @@ REQUIRED_MANIFEST_KEYS = {
 
 REQUIRED_FILL_COLUMNS = {
     "prediction_side",
-    "decision_second_bucket",
+    "decision_time_regime",
     "current_price_bucket",
-    "order_delay_seconds",
-    "limit_price",
+    "submit_second_anchor",
+    "limit_price_anchor",
     "win_market_count",
     "win_fill_market_count",
     "a_win_market_fill",
     "lose_market_count",
     "lose_fill_market_count",
     "a_lose_market_fill",
+    "sample_market_count",
     "fallback_level",
+    "is_reliable",
 }
 
 
@@ -203,9 +205,64 @@ def _check_fill_table(path: Path, findings: list[dict[str, str]]) -> None:
     fallback_levels = {r["fallback_level"] for r in rows}
     if not fallback_levels:
         findings.append({"level": "error", "item": "maker_fill_table.fallback_level", "message": "missing fallback levels"})
+    if "level_0_side_time30_price005" not in fallback_levels:
+        findings.append({"level": "warning", "item": "maker_fill_table.fallback_level", "message": "no exact level_0 rows present"})
+    reliable_values = {str(r["is_reliable"]).lower() for r in rows}
+    if not reliable_values <= {"true", "false"}:
+        findings.append({"level": "error", "item": "maker_fill_table.is_reliable", "message": "must be boolean-like"})
     for idx, row in enumerate(rows, start=2):
         _check_fill_probability(row, idx, "win", findings)
         _check_fill_probability(row, idx, "lose", findings)
+    _check_fill_surface_sidecars(path, len(rows), findings)
+
+
+def _check_fill_surface_sidecars(path: Path, row_count: int, findings: list[dict[str, str]]) -> None:
+    metadata_path = path.with_name(path.stem + "_metadata.json")
+    summary_path = path.with_name(path.stem + "_summary.csv")
+    if not metadata_path.exists():
+        findings.append({"level": "error", "item": "maker_fill_table_metadata", "message": "metadata sidecar missing"})
+    else:
+        metadata = json.loads(metadata_path.read_text(encoding="utf-8"))
+        required = {
+            "market_type",
+            "source_trades_csv",
+            "decision_time_step_seconds",
+            "current_price_bucket_size",
+            "submit_second_step_seconds",
+            "limit_price_step",
+            "min_win_market_count",
+            "fill_proxy",
+            "lose_fill_assumption_for_runtime",
+            "order_valid_until",
+            "created_at_utc",
+            "data_start_utc",
+            "data_end_utc",
+            "row_count",
+        }
+        missing = required - set(metadata)
+        if missing:
+            findings.append({"level": "error", "item": "maker_fill_table_metadata.keys", "message": f"missing {sorted(missing)}"})
+        if int(metadata.get("row_count", -1)) != row_count:
+            findings.append({"level": "error", "item": "maker_fill_table_metadata.row_count", "message": "does not match maker_fill_table rows"})
+        expected = {
+            "decision_time_step_seconds": 30,
+            "current_price_bucket_size": 0.05,
+            "submit_second_step_seconds": 30,
+            "limit_price_step": 0.05,
+            "min_win_market_count": 30,
+            "lose_fill_assumption_for_runtime": 1.0,
+            "order_valid_until": "market_end",
+        }
+        for key, value in expected.items():
+            if metadata.get(key) != value:
+                findings.append({"level": "error", "item": f"maker_fill_table_metadata.{key}", "message": f"expected {value!r}"})
+    if not summary_path.exists():
+        findings.append({"level": "error", "item": "maker_fill_table_summary", "message": "summary sidecar missing"})
+    else:
+        with summary_path.open("r", encoding="utf-8", newline="") as f:
+            summary_rows = list(csv.DictReader(f))
+        if not summary_rows:
+            findings.append({"level": "error", "item": "maker_fill_table_summary.rows", "message": "summary is empty"})
 
 
 def _check_fill_probability(row: dict[str, str], line_no: int, outcome: str, findings: list[dict[str, str]]) -> None:

@@ -60,6 +60,10 @@ def build_market_features(events: pd.DataFrame, market_start_ts: int, source_is_
     out["market_implied_up_prob_last"] = safe_div(out["up_token_last_price"], denom_last, 0.5)
     denom_vwap = out["up_token_vwap"] + (1.0 - out["down_token_vwap"])
     out["market_implied_up_prob_vwap"] = safe_div(out["up_token_vwap"], denom_vwap, 0.5)
+    _pair_price_features(out, "token_last", out["up_token_last_price"], out["down_token_last_price"])
+    _pair_price_features(out, "token_first", out["up_token_first_price"], out["down_token_first_price"])
+    _pair_price_features(out, "token_vwap", out["up_token_vwap"], out["down_token_vwap"])
+    _pair_price_features(out, "token_size_weighted_last_30s", out["up_token_size_weighted_last_30s_price"], out["down_token_size_weighted_last_30s_price"])
 
     for lo, hi in BUCKETS:
         _bucket_features(out, events, lo, hi)
@@ -86,12 +90,27 @@ def _fill_empty(out: dict[str, float]) -> None:
         "up_share_size": 0.5, "up_share_notional": 0.5, "up_last_price_minus_down_last_price": 0,
         "up_price_momentum_minus_down_price_momentum": 0, "market_implied_up_prob_last": 0.5,
         "market_implied_up_prob_vwap": 0.5,
+        "token_last_no_vig_up": 0.5, "token_last_complement_up": 0.5, "token_last_sum_minus_one": 0.0, "token_last_abs_sum_minus_one": 0.0,
+        "token_first_no_vig_up": 0.5, "token_first_complement_up": 0.5, "token_first_sum_minus_one": 0.0, "token_first_abs_sum_minus_one": 0.0,
+        "token_vwap_no_vig_up": 0.5, "token_vwap_complement_up": 0.5, "token_vwap_sum_minus_one": 0.0, "token_vwap_abs_sum_minus_one": 0.0,
+        "token_size_weighted_last_30s_no_vig_up": 0.5, "token_size_weighted_last_30s_complement_up": 0.5, "token_size_weighted_last_30s_sum_minus_one": 0.0, "token_size_weighted_last_30s_abs_sum_minus_one": 0.0,
     }
     out.update({k: float(v) for k, v in base.items()})
     for lo, hi in BUCKETS:
         prefix = f"bucket_{lo}_{hi}"
         for key in ["trade_count", "size_sum", "notional_sum", "up_size_share", "up_trade_share", "up_vwap", "down_vwap", "up_last_price", "down_last_price", "up_price_change", "down_price_change"]:
             out[f"{prefix}_{key}"] = 0.0 if "share" not in key and "vwap" not in key and "price" not in key else 0.5
+        for key, value in {
+            "last_no_vig_up": 0.5,
+            "last_complement_up": 0.5,
+            "last_sum_minus_one": 0.0,
+            "last_abs_sum_minus_one": 0.0,
+            "vwap_no_vig_up": 0.5,
+            "vwap_complement_up": 0.5,
+            "vwap_sum_minus_one": 0.0,
+            "vwap_abs_sum_minus_one": 0.0,
+        }.items():
+            out[f"{prefix}_{key}"] = value
     for key in ["buy_trade_count", "sell_trade_count", "buy_size_sum", "sell_size_sum", "buy_sell_count_imbalance", "buy_sell_size_imbalance", "up_sell_pressure", "down_sell_pressure"]:
         out[key] = 0.0
     for key in ["price_p10", "price_p25", "price_p50", "price_p75", "price_p90", "size_p50", "size_p90", "size_p95", "price_std", "size_std", "outcome_volume_entropy", "top1_trade_size_share", "top3_trade_size_share", "whale_size_share"]:
@@ -143,6 +162,18 @@ def _bucket_features(out: dict[str, float], events: pd.DataFrame, lo: int, hi: i
     out[f"{prefix}_down_last_price"] = float(down.iloc[-1]["price"]) if not down.empty else 0.5
     out[f"{prefix}_up_price_change"] = out[f"{prefix}_up_last_price"] - (float(up.iloc[0]["price"]) if not up.empty else 0.5)
     out[f"{prefix}_down_price_change"] = out[f"{prefix}_down_last_price"] - (float(down.iloc[0]["price"]) if not down.empty else 0.5)
+    _pair_price_features(out, f"{prefix}_last", out[f"{prefix}_up_last_price"], out[f"{prefix}_down_last_price"])
+    _pair_price_features(out, f"{prefix}_vwap", out[f"{prefix}_up_vwap"], out[f"{prefix}_down_vwap"])
+
+
+def _pair_price_features(out: dict[str, float], prefix: str, up_price: float, down_price: float) -> None:
+    up_price = float(up_price)
+    down_price = float(down_price)
+    price_sum = up_price + down_price
+    out[f"{prefix}_no_vig_up"] = safe_div(up_price, price_sum, 0.5)
+    out[f"{prefix}_complement_up"] = 1.0 - down_price
+    out[f"{prefix}_sum_minus_one"] = price_sum - 1.0
+    out[f"{prefix}_abs_sum_minus_one"] = abs(price_sum - 1.0)
 
 
 def _side_features(out: dict[str, float], events: pd.DataFrame) -> None:
