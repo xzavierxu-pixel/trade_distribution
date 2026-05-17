@@ -133,6 +133,7 @@ def _load_polymarket_live_snapshot(cfg: EngineConfig, feature_columns: list[str]
         "source": "polymarket_live",
         "path": None,
         "feature_count": int(len(feature_columns)),
+        "feature_window_seconds": int(cfg.features.feature_window_seconds),
         "slug": slug,
         "condition_id": condition_id,
         "raw_trade_rows": int(len(trades)),

@@ -107,7 +107,7 @@ def run_once(config_path: Path, mode: str | None = None, print_json: bool = Fals
         "model_version": manifest["model_version"],
         "artifact_hash": manifest.get("artifact_hash"),
         "market": {"condition_id": str(row.get("condition_id", "")), "market_start_ts": int(row.get("market_start_ts", 0))},
-        "window": {"decision_second": 120},
+        "window": _runtime_window_metadata(cfg, runtime_mode, int(row.get("market_start_ts", 0))),
         "features": {"feature_count": len(feature_columns), **feature_source},
         "p_up": p_up,
         "p_down": 1.0 - p_up,
@@ -172,6 +172,16 @@ def _live_timing_gate_summary(cfg: Any, runtime_mode: str, manifest: dict[str, A
         "polymarket_response_status": "timing_not_ready",
         "polymarket_responses": [],
     }
+
+
+def _runtime_window_metadata(cfg: Any, runtime_mode: str, market_start_ts: int) -> dict[str, Any]:
+    decision_second = int(cfg.features.feature_window_seconds)
+    window = {"decision_second": decision_second}
+    if runtime_mode == "live" and cfg.features.source == "polymarket_live" and market_start_ts > 0:
+        elapsed_seconds = int(datetime.now(timezone.utc).timestamp()) - market_start_ts
+        window["elapsed_seconds"] = elapsed_seconds
+        window["timing_ready"] = elapsed_seconds >= decision_second
+    return window
 
 
 def _read_json_if_exists(path: Path) -> dict[str, Any] | None:
