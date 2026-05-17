@@ -57,6 +57,7 @@ def run_once(config_path: Path, mode: str | None = None, print_json: bool = Fals
             maker_fill_table=maker_fill_table,
             validation_metrics=manifest["validation_metrics"],
             probability_reference=probability_reference,
+            calibrated_probability_available=bool(manifest.get("calibrator_file")),
             limits=PlannerLimits(
                 max_total_budget_usdc=cfg.orders.max_total_budget_usdc,
                 max_order_budget_usdc=cfg.orders.max_order_budget_usdc,

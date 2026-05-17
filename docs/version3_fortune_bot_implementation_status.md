@@ -117,7 +117,7 @@ self-test exercises one no-sleep cycle.
 | Enforce minimum 5 shares | planner requires `min_budget = min_shares * price` | Done |
 | Only positive edge orders | planner filters `edge > 0` before allocation | Done |
 | Tick-size price rounding | `floor_to_tick` rounds prices down | Done |
-| Idempotency | `execution_engine/idempotency.py`; `run_once` filters duplicate order keys | Done |
+| Duplicate order prevention | planner dedupes candidate order keys before allocation; `execution_engine/idempotency.py` and `run_once` filter already-seen selected order keys | Done |
 | Artifact manifest | `artifact_manifest.json`; verifier checks hashes, schema, `deployment_status`, `blocked_reasons`, and model gates | Done |
 | Bundle export | `execution_engine/artifact_export.py`; `dist/fortune_bot_early_trade_label_v1.tar.gz` | Done |
 | Bundle excludes secrets/cache | verifier checks no `secrets.env`, `__pycache__`, runtime artifacts, or sensitive env assignments | Done |
@@ -127,10 +127,10 @@ self-test exercises one no-sleep cycle.
 | Runtime self-test | `execution_engine/self_test.py` | Done |
 | Paper/live preflight | `execution_engine/preflight.py`; paper passes, live blocks current artifact | Done |
 | Paper observation workflow | `execution_engine/observe_paper.py`; deploy script ran a one-cycle smoke on `version3`; timer produced scheduled paper summaries at `16:20`, `16:25`, and `16:30 UTC` on `2026-05-16` | Done for scheduled paper runtime |
-| Runtime feature source config | `execution_engine/feature_source.py`; `config.example.yaml` supports `validation_snapshot`, `latest_feature_file`, and `trades_csv_snapshot` | Implemented; real Polymarket/Binance API fetcher still pending |
+| Runtime feature source config | `execution_engine/feature_source.py`; `config.example.yaml` supports `validation_snapshot`, `latest_feature_file`, `trades_csv_snapshot`, and `polymarket_live`; `config.polymarket_live.example.yaml` smoke fetched live Gamma/Data API market data | Implemented for Polymarket; Binance feature feed not used by current model |
 | JSONL audit event | `run_once` appends compact audit JSONL; `self_test` verifies event shape and secret-safe fields | Done |
 | Offline tuning audit | `models/early_trade_label_v1/tuning_report.json`; LightGBM/CatBoost included; best candidate still `adaboost`, accepted accuracy `0.7899067471201316` | Done, blocked |
-| q fallback reference | `probability_reference.json` includes 10 accepted-accuracy probability buckets | Done |
+| q source priority | `maker_order_plan.choose_q` uses calibrated `p_side` only when a calibrator is present, otherwise matches `probability_reference.json` buckets, then falls back to validation `accepted_sample_accuracy`; `self_test` covers bucket and fallback paths | Done |
 | Summary JSON file | configured path is written in normal environments; local Windows sandbox denies writes after pandas/sklearn import | Weakly verified locally |
 | Live default off | `config.example.yaml` has `runtime.mode=paper`, `orders.enabled=false` | Done |
 | Live requires explicit gates | `run_once` requires `orders.enabled=true` and `live_eligible=true` | Done |

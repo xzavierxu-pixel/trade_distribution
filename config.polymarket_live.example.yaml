@@ -9,7 +9,7 @@ runtime:
   idempotency_store_path: artifacts/state/execution_engine/idempotency.json
 
 features:
-  source: validation_snapshot
+  source: polymarket_live
   path: null
   feature_window_seconds: 120
   source_is_sell_only: false

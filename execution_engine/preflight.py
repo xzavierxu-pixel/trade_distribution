@@ -20,7 +20,7 @@ def run_preflight(config_path: Path, mode: str = "paper") -> dict[str, Any]:
         "budget_total_lte_7": cfg.orders.max_total_budget_usdc <= 7.0,
         "budget_order_lte_4": cfg.orders.max_order_budget_usdc <= 4.0,
         "min_shares_gte_5": cfg.orders.min_shares >= 5.0,
-        "features_source_valid": cfg.features.source in {"validation_snapshot", "latest_feature_file", "trades_csv_snapshot"},
+        "features_source_valid": cfg.features.source in {"validation_snapshot", "latest_feature_file", "trades_csv_snapshot", "polymarket_live"},
     }
     if cfg.features.source in {"latest_feature_file", "trades_csv_snapshot"}:
         checks["features_path_exists"] = bool(cfg.features.path and cfg.features.path.exists())

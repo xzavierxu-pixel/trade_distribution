@@ -37,15 +37,45 @@ def choose_q(
     p_up: float,
     probability_reference: dict[str, Any] | None,
     validation_metrics: dict[str, Any],
+    calibrated_probability_available: bool = False,
 ) -> tuple[float, str]:
     p_side = p_up if side == "up" else 1.0 - p_up
-    if 0.0 <= p_side <= 1.0:
+    if calibrated_probability_available and 0.0 <= p_side <= 1.0:
         return float(p_side), "calibrated_probability"
     if probability_reference:
-        buckets = probability_reference.get("accepted_accuracy_by_bucket") or []
-        if buckets:
-            return float(buckets[-1].get("accepted_accuracy", validation_metrics["accepted_sample_accuracy"])), "probability_bucket_accuracy"
+        bucket_q = q_from_probability_bucket(side, p_up, probability_reference)
+        if bucket_q is not None:
+            return bucket_q, "probability_bucket_accuracy"
     return float(validation_metrics["accepted_sample_accuracy"]), "validation_accepted_sample_accuracy"
+
+
+def q_from_probability_bucket(side: str, p_up: float, probability_reference: dict[str, Any]) -> float | None:
+    buckets = probability_reference.get("accepted_accuracy_by_bucket") or []
+    if not buckets:
+        return None
+    matched = None
+    for bucket in buckets:
+        lo = float(bucket.get("p_up_min", float("-inf")))
+        hi = float(bucket.get("p_up_max", float("inf")))
+        if lo <= p_up <= hi:
+            matched = bucket
+            break
+    if matched is None:
+        matched = min(
+            buckets,
+            key=lambda b: min(
+                abs(float(b.get("p_up_min", 0.0)) - p_up),
+                abs(float(b.get("p_up_max", 1.0)) - p_up),
+            ),
+        )
+    accepted_accuracy = matched.get("accepted_accuracy")
+    if accepted_accuracy is not None and not pd.isna(accepted_accuracy):
+        return float(accepted_accuracy)
+    actual_up_rate = matched.get("actual_up_rate")
+    if actual_up_rate is None or pd.isna(actual_up_rate):
+        return None
+    actual_up = float(actual_up_rate)
+    return actual_up if side == "up" else 1.0 - actual_up
 
 
 def build_order_plan(
@@ -56,12 +86,13 @@ def build_order_plan(
     maker_fill_table: pd.DataFrame,
     validation_metrics: dict[str, Any],
     probability_reference: dict[str, Any] | None = None,
+    calibrated_probability_available: bool = False,
     decision_second: int = 120,
     limits: PlannerLimits = PlannerLimits(),
     market_key: str = "unknown",
 ) -> dict[str, Any]:
     side = prediction_side.lower()
-    q, q_source = choose_q(side, p_up, probability_reference, validation_metrics)
+    q, q_source = choose_q(side, p_up, probability_reference, validation_metrics, calibrated_probability_available)
     price_bucket = bucket_price(current_price)
     decision_bucket = bucket_second(decision_second)
     rows = lookup_rows(maker_fill_table, side, decision_bucket, price_bucket)
@@ -117,9 +148,25 @@ def lookup_rows(table: pd.DataFrame, side: str, decision_bucket: str, price_buck
         & side_rows["current_price_bucket"].astype(str).eq(price_bucket)
     ]
     if not exact.empty:
-        return exact.to_dict("records")
+        return dedupe_candidate_rows(exact.to_dict("records"))
     fallback = side_rows[side_rows["fallback_level"].astype(str).isin(["side_delay_price", "global"])]
-    return fallback.to_dict("records")
+    return dedupe_candidate_rows(fallback.to_dict("records"))
+
+
+def dedupe_candidate_rows(rows: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    best: dict[tuple[int, float], dict[str, Any]] = {}
+    for row in rows:
+        key = (int(row["order_delay_seconds"]), float(row["limit_price"]))
+        previous = best.get(key)
+        if previous is None or _row_rank(row) > _row_rank(previous):
+            best[key] = row
+    return sorted(best.values(), key=lambda r: (int(r["order_delay_seconds"]), float(r["limit_price"])))
+
+
+def _row_rank(row: dict[str, Any]) -> tuple[int, int, float]:
+    fallback_rank = {"fine": 3, "side_delay_price": 2, "global": 1}.get(str(row.get("fallback_level")), 0)
+    is_any_bucket = int(str(row.get("decision_second_bucket")) == "any" and str(row.get("current_price_bucket")) == "any")
+    return (fallback_rank, is_any_bucket, float(row.get("win_market_count", 0)) + float(row.get("lose_market_count", 0)))
 
 
 def allocate_budget(candidates: list[dict[str, Any]], limits: PlannerLimits) -> list[dict[str, Any]]:

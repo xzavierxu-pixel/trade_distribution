@@ -3,6 +3,7 @@ numpy
 scikit-learn
 pyarrow
 PyYAML
+requests
 lightgbm
 catboost
 py-clob-client

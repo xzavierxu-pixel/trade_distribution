@@ -376,6 +376,7 @@ orders:
 polymarket:
   host: https://clob.polymarket.com
   gamma_base_url: https://gamma-api.polymarket.com
+  data_api_url: https://data-api.polymarket.com
   chain_id: 137
   signature_type: 1
   private_key_env: POLYMARKET_PRIVATE_KEY

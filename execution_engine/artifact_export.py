@@ -125,7 +125,14 @@ def export_artifact(
         bundle_out.parent.mkdir(parents=True, exist_ok=True)
         with tarfile.open(bundle_out, "w:gz") as tar:
             tar.add(target, arcname="execution_engine/deploy/" + model_version)
-            for path in [Path("execution_engine"), Path("early_trade_label"), Path("deploy"), Path("config.example.yaml"), Path("requirements.txt")]:
+            for path in [
+                Path("execution_engine"),
+                Path("early_trade_label"),
+                Path("deploy"),
+                Path("config.example.yaml"),
+                Path("config.polymarket_live.example.yaml"),
+                Path("requirements.txt"),
+            ]:
                 if path.exists():
                     tar.add(path, arcname=str(path), filter=_tar_filter)
     return manifest

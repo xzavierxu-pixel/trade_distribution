@@ -46,6 +46,7 @@ class BaselineConfig:
 class PolymarketConfig:
     host: str = "https://clob.polymarket.com"
     gamma_base_url: str = "https://gamma-api.polymarket.com"
+    data_api_url: str = "https://data-api.polymarket.com"
     chain_id: int = 137
     signature_type: int = 1
     private_key_env: str = "POLYMARKET_PRIVATE_KEY"
@@ -105,6 +106,7 @@ def load_engine_config(path: str | Path) -> EngineConfig:
         polymarket=PolymarketConfig(
             host=str(polymarket.get("host", "https://clob.polymarket.com")),
             gamma_base_url=str(polymarket.get("gamma_base_url", "https://gamma-api.polymarket.com")),
+            data_api_url=str(polymarket.get("data_api_url", "https://data-api.polymarket.com")),
             chain_id=int(polymarket.get("chain_id", 137)),
             signature_type=int(polymarket.get("signature_type", 1)),
             private_key_env=str(polymarket.get("private_key_env", "POLYMARKET_PRIVATE_KEY")),

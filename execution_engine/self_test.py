@@ -28,8 +28,19 @@ def run_self_test(artifact_dir: Path, bundle: Path | None, config: Path) -> dict
         current_price=0.55,
         maker_fill_table=fill_table,
         validation_metrics=manifest["validation_metrics"],
+        probability_reference=json.loads((artifact_dir / manifest["probability_reference_file"]).read_text(encoding="utf-8")),
         limits=PlannerLimits(),
         market_key="self_test_market",
+    )
+    fallback_plan = build_order_plan(
+        prediction_side="up",
+        p_up=0.90,
+        current_price=0.55,
+        maker_fill_table=fill_table,
+        validation_metrics=manifest["validation_metrics"],
+        probability_reference=None,
+        limits=PlannerLimits(),
+        market_key="self_test_market_fallback",
     )
     selected = plan["selected_orders"]
     duplicate_store = {"orders": {selected[0]["order_key"]: {}}} if selected else {"orders": {}}
@@ -45,6 +56,9 @@ def run_self_test(artifact_dir: Path, bundle: Path | None, config: Path) -> dict
         "paper_verify_ok": bool(paper_verify["ok"]),
         "live_verify_blocks_current_artifact": not bool(live_verify["ok"]),
         "planner_selected_positive_ev": bool(selected) and all(o["edge"] > 0 for o in selected),
+        "planner_uses_probability_bucket_q": plan["q_source"] == "probability_bucket_accuracy",
+        "planner_falls_back_to_validation_q": fallback_plan["q"] == manifest["validation_metrics"]["accepted_sample_accuracy"] and fallback_plan["q_source"] == "validation_accepted_sample_accuracy",
+        "planner_candidate_order_keys_unique": len({c["order_key"] for c in plan["candidate_orders"]}) == len(plan["candidate_orders"]),
         "planner_budget_limit": sum(o["budget_usdc"] for o in selected) <= 7.0 + 1e-9,
         "planner_order_budget_limit": all(o["budget_usdc"] <= 4.0 + 1e-9 for o in selected),
         "planner_min_shares": all(o["shares"] >= 5.0 for o in selected),
