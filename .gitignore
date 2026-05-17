@@ -1,0 +1,38 @@
+# Python/cache
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+
+# Local environments and secrets
+.env
+*.env
+secrets.env
+config.yaml
+
+# Runtime outputs
+artifacts/
+summary_*.json
+summary_inline_probe.json
+*.log
+*_state.json
+
+# Large/generated datasets
+data_processed/
+out_btc5m_30d_limit_sell_resolved/
+out_btc5m_7d_full_strategy/
+
+# Generated analysis reports/assets
+analysis_clean/
+
+# Binary/generated model artifacts
+*.pkl
+*.parquet
+dist/
+
+# Local editor/OS files
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/

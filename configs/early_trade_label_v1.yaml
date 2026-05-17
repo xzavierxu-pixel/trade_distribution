@@ -1,0 +1,16 @@
+project: btc-polymarket-early-trade-v1
+trades_csv: out_btc5m_30d_limit_sell_resolved/trades_sell_resolved.csv
+refs_csv: out_btc5m_30d_limit_sell_resolved/market_refs_resolved.csv
+outdir: models/early_trade_label_v1
+processed_dir: data_processed/early_trade_label_v1
+feature_window_seconds: 120
+label_positive: up
+time_split:
+  train_fraction: 0.70
+  purge_minutes: 10
+threshold_search:
+  min_coverage: 0.70
+  step: 0.005
+metrics:
+  baseline_accuracy: majority_class
+random_state: 42

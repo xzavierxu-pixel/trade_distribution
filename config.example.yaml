@@ -1,0 +1,42 @@
+baseline:
+  artifact_dir: execution_engine/deploy/early_trade_label_v1
+  manifest_file: artifact_manifest.json
+
+runtime:
+  mode: paper
+  audit_log: artifacts/logs/execution_engine/live.jsonl
+  summary_dir: artifacts/logs/execution_engine/summaries
+  idempotency_store_path: artifacts/state/execution_engine/idempotency.json
+
+features:
+  source: validation_snapshot
+  path: null
+  feature_window_seconds: 120
+  source_is_sell_only: false
+
+thresholds:
+  t_up: null
+  t_down: null
+
+orders:
+  enabled: false
+  planner: maker_ev
+  max_total_budget_usdc: 7.0
+  max_order_budget_usdc: 4.0
+  min_shares: 5.0
+  max_orders_per_window: 3
+  maker_only: true
+  tick_size: 0.01
+  min_price: 0.01
+  max_price: 0.99
+
+polymarket:
+  host: https://clob.polymarket.com
+  gamma_base_url: https://gamma-api.polymarket.com
+  chain_id: 137
+  signature_type: 1
+  private_key_env: POLYMARKET_PRIVATE_KEY
+  api_key_env: CLOB_API_KEY
+  api_secret_env: CLOB_SECRET
+  api_passphrase_env: CLOB_PASS_PHRASE
+  funder_env: DEPOSIT_WALLET_ADDRESS

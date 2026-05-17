@@ -1,0 +1,8 @@
+pandas
+numpy
+scikit-learn
+pyarrow
+PyYAML
+lightgbm
+catboost
+py-clob-client
