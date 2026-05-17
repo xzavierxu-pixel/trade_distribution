@@ -1,5 +1,7 @@
 {
   "project": "btc-polymarket-early-trade-v1",
+  "model_version": "early_trade_label_v1",
+  "artifact_hash": "cac4cb43ea2e6d6e38cbf17b9020b9948fc12a3d56cd0cb7c4820b3174ab6dea",
   "market": "BTC/USDT",
   "exchange": "polymarket",
   "horizon": "5m",
@@ -154,7 +156,7 @@
       "mean": 0.5016114273397723,
       "std": 0.2896801059490608,
       "p10": 0.11585429113370287,
-      "p50": 0.4935542903432998,
+      "p50": 0.49355429034329973,
       "p90": 0.8769307054057053
     },
     "p_up_validation": {

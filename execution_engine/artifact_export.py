@@ -132,7 +132,10 @@ def export_artifact(
     manifest_path = target / "artifact_manifest.json"
     manifest_path.write_text(json.dumps(manifest, indent=2), encoding="utf-8")
     manifest["files"] = {p.name: sha256_file(p) for p in sorted(target.iterdir()) if p.is_file() and p.name != "artifact_manifest.json"}
-    manifest["artifact_hash"] = sha256_text(json.dumps(manifest["files"], sort_keys=True))
+    manifest["artifact_hash"] = artifact_hash_from_files(manifest["files"])
+    _inject_evaluation_export_metadata(target / "evaluation.json", model_version, manifest["artifact_hash"])
+    _inject_evaluation_export_metadata(target / "metrics.json", model_version, manifest["artifact_hash"])
+    manifest["files"] = {p.name: sha256_file(p) for p in sorted(target.iterdir()) if p.is_file() and p.name != "artifact_manifest.json"}
     manifest_path.write_text(json.dumps(manifest, indent=2), encoding="utf-8")
     if bundle_out:
         bundle_out.parent.mkdir(parents=True, exist_ok=True)
@@ -157,6 +160,20 @@ def sha256_file(path: Path) -> str:
         for chunk in iter(lambda: f.read(1024 * 1024), b""):
             h.update(chunk)
     return h.hexdigest()
+
+
+def artifact_hash_from_files(files: dict[str, str]) -> str:
+    stable_files = {name: digest for name, digest in files.items() if name not in {"evaluation.json", "metrics.json"}}
+    return sha256_text(json.dumps(stable_files, sort_keys=True))
+
+
+def _inject_evaluation_export_metadata(path: Path, model_version: str, artifact_hash: str) -> None:
+    if not path.exists():
+        return
+    data = json.loads(path.read_text(encoding="utf-8"))
+    data["model_version"] = model_version
+    data["artifact_hash"] = artifact_hash
+    path.write_text(json.dumps(data, indent=2, allow_nan=True), encoding="utf-8")
 
 
 def _metric_gates(metrics: dict[str, Any], prefix: str) -> dict[str, bool]:

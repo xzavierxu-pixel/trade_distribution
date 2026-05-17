@@ -220,7 +220,7 @@ def train(
         holdout_pred = holdout_df[["condition_id", "market_start_ts", "final_outcome", "label"]].copy()
         holdout_pred["p_up"] = best_model.predict_proba(x_holdout)[:, 1]
 
-    evaluation = write_evaluation(project, cols, train_pred, val_pred, outdir, min_coverage, threshold_step, feature_window_seconds, holdout_pred)
+    evaluation = write_evaluation(project, cols, train_pred, val_pred, outdir, min_coverage, threshold_step, feature_window_seconds, holdout_pred, outdir.name)
     t_up = evaluation["decision_policy"]["selected_t_up"]
     t_down = evaluation["decision_policy"]["selected_t_down"]
     train_pred["prediction"] = apply_policy(train_pred["p_up"].to_numpy(), t_up, t_down)

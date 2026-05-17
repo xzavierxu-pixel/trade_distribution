@@ -10,7 +10,7 @@ import tarfile
 from pathlib import Path
 from typing import Any
 
-from execution_engine.artifact_export import sha256_file, sha256_text
+from execution_engine.artifact_export import artifact_hash_from_files, sha256_file
 
 
 MIN_ACCEPTED_SAMPLE_ACCURACY = 0.80
@@ -96,9 +96,17 @@ def _check_file_hashes(artifact_dir: Path, manifest: dict[str, Any], findings: l
         actual = sha256_file(path)
         if actual != expected:
             findings.append({"level": "error", "item": f"files.{name}", "message": "sha256 mismatch"})
-    actual_artifact_hash = sha256_text(json.dumps(files, sort_keys=True))
+    actual_artifact_hash = artifact_hash_from_files(files)
     if manifest.get("artifact_hash") != actual_artifact_hash:
         findings.append({"level": "error", "item": "artifact_hash", "message": "artifact hash does not match file hash map"})
+    for name in ["evaluation.json", "metrics.json"]:
+        path = artifact_dir / name
+        if path.exists():
+            data = json.loads(path.read_text(encoding="utf-8"))
+            if data.get("model_version") != manifest.get("model_version"):
+                findings.append({"level": "error", "item": f"{name}.model_version", "message": "does not match manifest"})
+            if data.get("artifact_hash") != manifest.get("artifact_hash"):
+                findings.append({"level": "error", "item": f"{name}.artifact_hash", "message": "does not match manifest"})
 
 
 def _check_model_gates(manifest: dict[str, Any], require_live: bool, findings: list[dict[str, str]]) -> None:

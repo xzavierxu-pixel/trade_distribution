@@ -23,7 +23,7 @@ Current manifest evidence:
 
 ```text
 model_version: early_trade_label_v1
-artifact_hash: 3c22c74bd9ea3b80ad7d25af9747ad8de72580299ac44daec24c2f021b9a8cad
+artifact_hash: cac4cb43ea2e6d6e38cbf17b9020b9948fc12a3d56cd0cb7c4820b3174ab6dea
 validation coverage: 0.7045850261172374
 validation accepted_sample_accuracy: 0.7817133443163097
 holdout coverage: 0.7363530778164924
@@ -122,6 +122,7 @@ self-test exercises one no-sleep cycle.
 | Tick-size price rounding | `floor_to_tick` rounds prices down | Done |
 | Duplicate order prevention | planner dedupes candidate order keys before allocation; `execution_engine/idempotency.py` and `run_once` filter already-seen selected order keys | Done |
 | Artifact manifest | `artifact_manifest.json`; verifier checks hashes, schema, `deployment_status`, `blocked_reasons`, and model gates | Done |
+| Evaluation export metadata | `evaluation.json` and `metrics.json` record `model_version` and deploy `artifact_hash`; verifier checks both against manifest | Done |
 | Bundle export | `execution_engine/artifact_export.py`; `dist/fortune_bot_early_trade_label_v1.tar.gz` | Done |
 | Bundle excludes secrets/cache | verifier checks no `secrets.env`, `__pycache__`, runtime artifacts, or sensitive env assignments | Done |
 | Safe paper defaults | verifier checks `config.example.yaml` paper mode, `orders.enabled=false`, and systemd `--mode paper` | Done |
@@ -146,7 +147,7 @@ self-test exercises one no-sleep cycle.
 | systemd timer/service | `deploy/fortune-bot.timer`, `deploy/fortune-bot.service` | Installed on `version3`; `ec2-user` linger enabled; timer enabled and confirmed fired through `2026-05-16T16:30:43Z` |
 | Model coverage >= 0.70 | manifest shows validation `0.7045850261172374` and holdout `0.7363530778164924` | Done |
 | Model accepted accuracy > 0.80 | manifest shows validation `0.7817133443163097` and holdout `0.7854889589905363` | Blocked |
-| version3 backup/clear/deploy | `version3` deployed to `/home/ec2-user/fortune_bot`; two backups exist in `/home/ec2-user/fortune_bot_backups`; timer enabled after smoke; newest local artifact `3c22c74...` has not been redeployed | Paper-only done; redeploy pending |
+| version3 backup/clear/deploy | `version3` deployed to `/home/ec2-user/fortune_bot`; two backups exist in `/home/ec2-user/fortune_bot_backups`; timer enabled after smoke; newest local artifact `cac4cb43...` has not been redeployed | Paper-only done; redeploy pending |
 | Observe at least 3 paper cycles on server | scheduled paper summaries: `summary_20260516T162026Z.json`, `summary_20260516T162544Z.json`, `summary_20260516T163044Z.json` | Done for runtime scheduling; still uses validation snapshot features |
 
 ## Live Block Rationale

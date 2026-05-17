@@ -46,6 +46,7 @@ def write_evaluation(
     threshold_step: float,
     feature_window_seconds: int,
     holdout_pred: pd.DataFrame | None = None,
+    model_version: str | None = None,
 ) -> dict[str, Any]:
     outdir.mkdir(parents=True, exist_ok=True)
     baseline = float(max(val_pred["label"].mean(), 1 - val_pred["label"].mean()))
@@ -65,6 +66,8 @@ def write_evaluation(
         holdout_metrics = add_prob_metrics(holdout_metrics, holdout_pred["label"].to_numpy(), holdout_pred["p_up"].to_numpy())
     result = {
         "project": project,
+        "model_version": model_version,
+        "artifact_hash": None,
         "market": "BTC/USDT",
         "exchange": "polymarket",
         "horizon": "5m",
