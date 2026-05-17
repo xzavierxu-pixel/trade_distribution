@@ -1,7 +1,7 @@
 {
   "project": "btc-polymarket-5m-maker",
   "model_version": "early_trade_label_v1",
-  "created_at_utc": "2026-05-17T03:17:26.712202+00:00",
+  "created_at_utc": "2026-05-17T03:23:36.515536+00:00",
   "live_eligible": false,
   "deployment_status": "paper_only_blocked",
   "blocked_reasons": [
@@ -59,7 +59,7 @@
     "feature_columns.json": "36362078ffcbbca8bfe3aa76f3833e2502ece580a0aecd5d5ed690e3c5d8a684",
     "features_holdout.parquet": "7d280e0715c4fef09325270d30e237f4f95142ea6b308c93c19b1cfaf106148e",
     "features_validation.parquet": "599b416171b31b070ed1024e9924f8d7e7600a51fa0a0a1c033b510d537d8b5f",
-    "maker_fill_table.csv": "d5794aeae14c6947d2f7807c1b9c244295bfbdc9db93409fe393764dae3ef663",
+    "maker_fill_table.csv": "28c0fcca270ca5bef6855f79750ba0791417832c1fb3fabbc3f3e79665ab8f4e",
     "metrics.json": "b0ec26729ce92c2624a62873af2191bb393da1b386edc14fa6d6594a5fdfdeb7",
     "model.pkl": "c67f060573e5a030d1eeb0631f61d9b21feee8117b1a2bc2dd3f509561c91320",
     "predictions_holdout.csv": "859079a0e9bcb718c8446aaeda66c03b190ec536ef96b92f23c45db2bc37dfbe",
@@ -70,5 +70,5 @@
     "tuning_candidates.csv": "315c3f0c1bbffe3affeb64b3c799d662f94095c2a631b271e6616e383bb3b657",
     "tuning_report.json": "4d43a66e6414a1257e35a6f99a092ccbb68b3301b02d0c3a7175d1a814ae937c"
   },
-  "artifact_hash": "a268fbd7c5db9ecacedbe8ef3566d478441111a5692d12abcea0627cf0e1cfb1"
+  "artifact_hash": "1a2ec9c7c99f82dd3d7378104fb8a88436ec82e0a675fdddf7ea89bcec410f62"
 }

@@ -23,14 +23,14 @@ Current manifest evidence:
 
 ```text
 model_version: early_trade_label_v1
-artifact_hash: a268fbd7c5db9ecacedbe8ef3566d478441111a5692d12abcea0627cf0e1cfb1
+artifact_hash: 1a2ec9c7c99f82dd3d7378104fb8a88436ec82e0a675fdddf7ea89bcec410f62
 validation coverage: 0.7045850261172374
 validation accepted_sample_accuracy: 0.7775947281713345
 holdout coverage: 0.7375145180023229
 holdout accepted_sample_accuracy: 0.7952755905511811
 live_eligible: false
 deployment_status: paper_only_blocked
-blocked_reasons: accepted_sample_accuracy_gt_0_80
+blocked_reasons: accepted_sample_accuracy_gt_0_80, holdout_accepted_sample_accuracy_gt_0_80
 ```
 
 The PRD requires:

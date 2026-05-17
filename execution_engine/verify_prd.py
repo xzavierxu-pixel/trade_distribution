@@ -3,6 +3,7 @@ from __future__ import annotations
 import argparse
 import csv
 import json
+import math
 import re
 import sys
 import tarfile
@@ -194,6 +195,28 @@ def _check_fill_table(path: Path, findings: list[dict[str, str]]) -> None:
     fallback_levels = {r["fallback_level"] for r in rows}
     if not fallback_levels:
         findings.append({"level": "error", "item": "maker_fill_table.fallback_level", "message": "missing fallback levels"})
+    for idx, row in enumerate(rows, start=2):
+        _check_fill_probability(row, idx, "win", findings)
+        _check_fill_probability(row, idx, "lose", findings)
+
+
+def _check_fill_probability(row: dict[str, str], line_no: int, outcome: str, findings: list[dict[str, str]]) -> None:
+    count_key = f"{outcome}_market_count"
+    fill_key = f"{outcome}_fill_market_count"
+    prob_key = f"a_{outcome}_market_fill"
+    try:
+        count = int(float(row[count_key]))
+        fill_count = int(float(row[fill_key]))
+        probability = float(row[prob_key])
+    except (KeyError, TypeError, ValueError):
+        findings.append({"level": "error", "item": f"maker_fill_table.{prob_key}", "message": f"invalid numeric value at csv line {line_no}"})
+        return
+    if count < 0 or fill_count < 0 or fill_count > count:
+        findings.append({"level": "error", "item": f"maker_fill_table.{fill_key}", "message": f"invalid counts at csv line {line_no}"})
+        return
+    expected = fill_count / count if count else 0.0
+    if not math.isclose(probability, expected, rel_tol=1e-9, abs_tol=1e-9):
+        findings.append({"level": "error", "item": f"maker_fill_table.{prob_key}", "message": f"does not equal {fill_key}/{count_key} at csv line {line_no}"})
 
 
 def _check_bundle(bundle: Path, findings: list[dict[str, str]]) -> None:
