@@ -1,5 +1,5 @@
 {
-  "created_at_utc": "2026-05-17T02:28:02.801516+00:00",
+  "created_at_utc": "2026-05-17T02:56:47.509317+00:00",
   "dataset_path": "data_processed\\early_trade_label_v1\\market_dataset.parquet",
   "train_fraction": 0.7,
   "purge_minutes": 10,
@@ -54,10 +54,10 @@
       "coverage": 0.7009671179883946,
       "accepted_sample_accuracy": 0.7869757174392936,
       "accepted_count": 1812,
-      "up_prediction_count": 758,
-      "down_prediction_count": 1054,
-      "selected_t_up": 0.68,
-      "selected_t_down": 0.415,
+      "up_prediction_count": 739,
+      "down_prediction_count": 1073,
+      "selected_t_up": 0.685,
+      "selected_t_down": 0.42,
       "selection_score": 1.338978362614125,
       "coverage_constraint_satisfied": true
     },
@@ -119,10 +119,10 @@
       "coverage": 0.7029013539651837,
       "accepted_sample_accuracy": 0.7848101265822784,
       "accepted_count": 1817,
-      "up_prediction_count": 836,
-      "down_prediction_count": 981,
-      "selected_t_up": 0.67,
-      "selected_t_down": 0.38,
+      "up_prediction_count": 797,
+      "down_prediction_count": 1020,
+      "selected_t_up": 0.68,
+      "selected_t_down": 0.395,
       "selection_score": 1.3154397542382519,
       "coverage_constraint_satisfied": true
     }

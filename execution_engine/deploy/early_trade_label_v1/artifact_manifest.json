@@ -1,7 +1,7 @@
 {
   "project": "btc-polymarket-5m-maker",
   "model_version": "early_trade_label_v1",
-  "created_at_utc": "2026-05-17T02:47:13.139342+00:00",
+  "created_at_utc": "2026-05-17T02:57:40.197855+00:00",
   "live_eligible": false,
   "deployment_status": "paper_only_blocked",
   "blocked_reasons": [
@@ -22,16 +22,16 @@
   "maker_fill_table_file": "maker_fill_table.csv",
   "thresholds": {
     "t_up": 0.645,
-    "t_down": 0.345,
+    "t_down": 0.41,
     "min_coverage": 0.7,
     "min_accepted_sample_accuracy": 0.8
   },
   "validation_metrics": {
-    "coverage": 0.7009671179883946,
-    "accepted_sample_accuracy": 0.7875275938189845,
-    "accepted_count": 1812,
-    "up_prediction_count": 919,
-    "down_prediction_count": 893
+    "coverage": 0.7052224371373308,
+    "accepted_sample_accuracy": 0.7899067471201316,
+    "accepted_count": 1823,
+    "up_prediction_count": 887,
+    "down_prediction_count": 936
   },
   "decision_policy": {
     "coverage_constraint_satisfied": true
@@ -43,20 +43,20 @@
     "maker_only": true
   },
   "files": {
-    "evaluation.json": "861c625cbb591f8837014b2fe78ff3b7260ae27d94dc6aad47123666b9fd91e8",
-    "false_down_slices.csv": "0a17316699892a232cc80d09eff2c2c79e528792acb7dfa3d44c3677aa8530e8",
-    "false_up_slices.csv": "4dca0ce679520d3d809f84cc73ff38b2fb5438fa637bfb07f3f5589a59a332af",
+    "evaluation.json": "ff4d053b81d2be19ae194d83cda3af67af8868418ce03eafbe63868e7d9c5e95",
+    "false_down_slices.csv": "4430b6ef19d3d432cb71d86b3813a856ccd4ce56dd936bdb5b27bb83ce25066f",
+    "false_up_slices.csv": "13dfc52e39184f0458378d10445cd71eb1fbf22fc5915cc2b9fbc96d794abec3",
     "feature_columns.json": "36362078ffcbbca8bfe3aa76f3833e2502ece580a0aecd5d5ed690e3c5d8a684",
     "features_validation.parquet": "d300f92b45e5eee9503c8c28fd42e6638cc54f7ab4e9b4888a588ce64b7df7f2",
     "maker_fill_table.csv": "d5794aeae14c6947d2f7807c1b9c244295bfbdc9db93409fe393764dae3ef663",
-    "metrics.json": "861c625cbb591f8837014b2fe78ff3b7260ae27d94dc6aad47123666b9fd91e8",
-    "model.pkl": "f1c262c87d4d3f1460f156abc172187a16edcc7b1d2b3de5ea99c66d369394f7",
-    "probability_deciles.csv": "cec10501b56f1ba2dad629fe45c71348d6485512b1686b777fd7571f49e5c1fd",
-    "probability_reference.json": "54bb24bcc0a8238e244100c1e92942b96dab6ed3abce98b0a879cea02abf088c",
-    "regime_slices.csv": "a1146f962a0b2d904abe97b9ac18b108a74fd8553d2c670044bb19d4880a0103",
-    "threshold_search.json": "d586a0b16f3e96ef97b7e23961a1ce5a77e3d84f542fb107c50a97e9799fc940",
-    "tuning_candidates.csv": "4e85b5ebcdb318b99ca00f9b5587ee8351d5b8105a05429da323856b45b19f49",
-    "tuning_report.json": "2230f2bf7fae6b1b1ec26c396476dbe8e51c2c8e415e435084478d86186205d2"
+    "metrics.json": "ff4d053b81d2be19ae194d83cda3af67af8868418ce03eafbe63868e7d9c5e95",
+    "model.pkl": "c67f060573e5a030d1eeb0631f61d9b21feee8117b1a2bc2dd3f509561c91320",
+    "probability_deciles.csv": "bdfa1ffa8c8b86539cb0200bc6d44ade772802eaa3b36c392aae611a81530d78",
+    "probability_reference.json": "565f04ef8c18449455343724caddcedc162e5c9e8b0d45887646966d78ff043a",
+    "regime_slices.csv": "16d74114bf0d3c3a6807ec2bfe795c267a43469689da98028800c98ea895610f",
+    "threshold_search.json": "9deaf30c1572b654f6172ccca54ec486ae8a47c83c6e80eecf684fc7f57bddc5",
+    "tuning_candidates.csv": "430dc1e764e2d1fe98108c5c9d3e348cb14129f7dc79e27ee1ecf9f26c5df1a5",
+    "tuning_report.json": "9e2e0daf3c97bf2e2cb8f797932d35047c75bad04bd2e21f95d01ae3a7a1ffaf"
   },
-  "artifact_hash": "d956ab49f4d2bdbaf8b60103b31aa2cceac4db9e88fac2919c5feeac90f5d0fd"
+  "artifact_hash": "839d4ee5a96039fa0ac7782c3a1d74d941c902ebfc09eae9d9a5220f6ba3285a"
 }

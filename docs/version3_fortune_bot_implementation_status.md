@@ -23,9 +23,9 @@ Current manifest evidence:
 
 ```text
 model_version: early_trade_label_v1
-artifact_hash: d956ab49f4d2bdbaf8b60103b31aa2cceac4db9e88fac2919c5feeac90f5d0fd
-validation coverage: 0.7009671179883946
-validation accepted_sample_accuracy: 0.7875275938189845
+artifact_hash: 839d4ee5a96039fa0ac7782c3a1d74d941c902ebfc09eae9d9a5220f6ba3285a
+validation coverage: 0.7052224371373308
+validation accepted_sample_accuracy: 0.7899067471201316
 live_eligible: false
 deployment_status: paper_only_blocked
 blocked_reasons: accepted_sample_accuracy_gt_0_80
@@ -129,7 +129,7 @@ self-test exercises one no-sleep cycle.
 | Paper observation workflow | `execution_engine/observe_paper.py`; deploy script ran a one-cycle smoke on `version3`; timer produced scheduled paper summaries at `16:20`, `16:25`, and `16:30 UTC` on `2026-05-16` | Done for scheduled paper runtime |
 | Runtime feature source config | `execution_engine/feature_source.py`; `config.example.yaml` supports `validation_snapshot`, `latest_feature_file`, `trades_csv_snapshot`, and `polymarket_live`; `config.polymarket_live.example.yaml` smoke fetched live Gamma/Data API market data | Implemented for Polymarket; Binance feature feed not used by current model |
 | JSONL audit event | `run_once` appends compact audit JSONL; `self_test` verifies event shape and secret-safe fields | Done |
-| Offline tuning audit | `models/early_trade_label_v1/tuning_report.json`; LightGBM/CatBoost included; best candidate still `adaboost`, accepted accuracy `0.7899067471201316` | Done, blocked |
+| Offline tuning audit | `models/early_trade_label_v1/tuning_report.json`; LightGBM/CatBoost included; best candidate is `adaboost`, accepted accuracy `0.7899067471201316` | Done, blocked |
 | q source priority | `maker_order_plan.choose_q` uses calibrated `p_side` only when a calibrator is present, otherwise matches `probability_reference.json` buckets, then falls back to validation `accepted_sample_accuracy`; `self_test` covers bucket and fallback paths | Done |
 | Summary JSON file | configured path is written in normal environments; local Windows sandbox denies writes after pandas/sklearn import | Weakly verified locally |
 | Live default off | `config.example.yaml` has `runtime.mode=paper`, `orders.enabled=false` | Done |
@@ -139,8 +139,8 @@ self-test exercises one no-sleep cycle.
 | version3 rollback script | `deploy/version3_rollback.ps1` | Implemented but not executed |
 | version3 dry-run path check | `deploy/version3_deploy.ps1 -DryRun` reached `version3` and resolved `/home/ec2-user/fortune_bot` | Done |
 | systemd timer/service | `deploy/fortune-bot.timer`, `deploy/fortune-bot.service` | Installed on `version3`; `ec2-user` linger enabled; timer enabled and confirmed fired through `2026-05-16T16:30:43Z` |
-| Model coverage >= 0.70 | manifest shows `0.7009671179883946` | Done |
-| Model accepted accuracy > 0.80 | manifest shows `0.7875275938189845` | Blocked |
+| Model coverage >= 0.70 | manifest shows `0.7052224371373308` | Done |
+| Model accepted accuracy > 0.80 | manifest shows `0.7899067471201316` | Blocked |
 | version3 backup/clear/deploy | `version3` deployed to `/home/ec2-user/fortune_bot`; two backups exist in `/home/ec2-user/fortune_bot_backups`; timer enabled after smoke | Paper-only done |
 | Observe at least 3 paper cycles on server | scheduled paper summaries: `summary_20260516T162026Z.json`, `summary_20260516T162544Z.json`, `summary_20260516T163044Z.json` | Done for runtime scheduling; still uses validation snapshot features |
 

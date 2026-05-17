@@ -5,9 +5,9 @@ import json
 import pickle
 from pathlib import Path
 
-import numpy as np
 import pandas as pd
-from sklearn.ensemble import HistGradientBoostingClassifier, RandomForestClassifier
+import numpy as np
+from sklearn.ensemble import AdaBoostClassifier, ExtraTreesClassifier, GradientBoostingClassifier, HistGradientBoostingClassifier, RandomForestClassifier
 from sklearn.impute import SimpleImputer
 from sklearn.linear_model import LogisticRegression
 from sklearn.metrics import roc_auc_score
@@ -93,18 +93,34 @@ def feature_columns(df: pd.DataFrame) -> list[str]:
 
 def candidates(random_state: int) -> dict[str, Pipeline]:
     models = {
-        "hist_gradient_boosting": Pipeline([
+        "hist_gradient_boosting_regularized": Pipeline([
             ("imputer", SimpleImputer(strategy="median")),
-            ("model", HistGradientBoostingClassifier(max_iter=250, learning_rate=0.04, l2_regularization=0.05, random_state=random_state)),
+            ("model", HistGradientBoostingClassifier(max_iter=400, learning_rate=0.03, l2_regularization=0.10, max_leaf_nodes=31, random_state=random_state)),
         ]),
-        "random_forest": Pipeline([
+        "hist_gradient_boosting_shallow": Pipeline([
             ("imputer", SimpleImputer(strategy="median")),
-            ("model", RandomForestClassifier(n_estimators=300, min_samples_leaf=8, n_jobs=-1, random_state=random_state)),
+            ("model", HistGradientBoostingClassifier(max_iter=200, learning_rate=0.05, l2_regularization=0.01, max_leaf_nodes=15, random_state=random_state + 1)),
         ]),
-        "logistic_regression": Pipeline([
+        "random_forest_sqrt": Pipeline([
+            ("imputer", SimpleImputer(strategy="median")),
+            ("model", RandomForestClassifier(n_estimators=500, min_samples_leaf=5, max_features="sqrt", n_jobs=-1, random_state=random_state + 2)),
+        ]),
+        "extra_trees_sqrt": Pipeline([
+            ("imputer", SimpleImputer(strategy="median")),
+            ("model", ExtraTreesClassifier(n_estimators=500, min_samples_leaf=5, max_features="sqrt", n_jobs=-1, random_state=random_state + 3)),
+        ]),
+        "gradient_boosting_shallow": Pipeline([
+            ("imputer", SimpleImputer(strategy="median")),
+            ("model", GradientBoostingClassifier(n_estimators=250, learning_rate=0.03, max_depth=2, random_state=random_state + 4)),
+        ]),
+        "adaboost": Pipeline([
+            ("imputer", SimpleImputer(strategy="median")),
+            ("model", AdaBoostClassifier(n_estimators=300, learning_rate=0.03, random_state=random_state + 5)),
+        ]),
+        "logistic_regression_balanced": Pipeline([
             ("imputer", SimpleImputer(strategy="median")),
             ("scaler", StandardScaler()),
-            ("model", LogisticRegression(max_iter=2000, class_weight="balanced", random_state=random_state)),
+            ("model", LogisticRegression(max_iter=3000, class_weight="balanced", random_state=random_state + 6)),
         ]),
     }
     models.update(_optional_boosters(random_state))
@@ -135,7 +151,7 @@ def train(
 
     best_name = ""
     best_model: Pipeline | None = None
-    best_score = -np.inf
+    best_score = (float("-inf"), float("-inf"), float("-inf"), float("-inf"))
     selection_rows = []
     baseline = float(max(y_val.mean(), 1 - y_val.mean()))
     for name, model in candidates(random_state).items():
@@ -147,15 +163,15 @@ def train(
         chosen["model"] = name
         chosen["roc_auc"] = float(auc)
         selection_rows.append(chosen)
-        score = float(chosen["selection_score"])
+        score = _model_selection_key(chosen)
         if bool(chosen["coverage_constraint_satisfied"]) and score > best_score:
             best_name, best_model, best_score = name, model, score
     if best_model is None:
-        fallback = max(selection_rows, key=lambda r: (float(r["coverage"]), float(r["selection_score"])))
+        fallback = max(selection_rows, key=_model_selection_key)
         best_name = str(fallback["model"])
         best_model = candidates(random_state)[best_name]
         best_model.fit(x_train, y_train)
-        best_score = float(fallback["selection_score"])
+        best_score = _model_selection_key(fallback)
     assert best_model is not None
 
     train_pred = train_df[["condition_id", "market_start_ts", "final_outcome", "label"]].copy()
@@ -180,8 +196,17 @@ def train(
     (outdir / "feature_columns.json").write_text(json.dumps(cols, indent=2), encoding="utf-8")
     pd.DataFrame(selection_rows).to_csv(outdir / "model_selection.csv", index=False)
     (outdir / "model_selection.json").write_text(
-        json.dumps({"selected_model": best_name, "validation_selection_score": best_score}, indent=2),
+        json.dumps({"selected_model": best_name, "validation_selection_key": best_score}, indent=2),
         encoding="utf-8",
+    )
+
+
+def _model_selection_key(row: dict[str, object]) -> tuple[float, float, float, float]:
+    return (
+        float(row["accepted_sample_accuracy"]),
+        float(row["balanced_precision"]),
+        float(row["selection_score"]),
+        float(row["coverage"]),
     )
 
 

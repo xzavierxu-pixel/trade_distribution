@@ -1,4 +1,9 @@
 {
-  "selected_model": "logistic_regression",
-  "validation_selection_score": 1.3450536310884469
+  "selected_model": "adaboost",
+  "validation_selection_key": [
+    0.7899067471201316,
+    0.790123724452924,
+    1.3716096580493,
+    0.7052224371373308
+  ]
 }

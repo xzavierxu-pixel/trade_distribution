@@ -77,7 +77,10 @@ def search_thresholds(y: np.ndarray, p_up: np.ndarray, min_coverage: float, step
             rows.append(score_policy(y, p_up, float(t_up), float(t_down), baseline_accuracy))
     df = pd.DataFrame(rows)
     df["coverage_constraint_satisfied"] = df["coverage"] >= min_coverage
-    return df.sort_values(["coverage_constraint_satisfied", "selection_score", "coverage"], ascending=[False, False, False])
+    return df.sort_values(
+        ["coverage_constraint_satisfied", "accepted_sample_accuracy", "balanced_precision", "selection_score", "coverage"],
+        ascending=[False, False, False, False, False],
+    )
 
 
 def choose_best(search: pd.DataFrame, min_coverage: float) -> dict[str, float]:
@@ -103,4 +106,3 @@ def main() -> None:
 
 if __name__ == "__main__":
     main()
-
