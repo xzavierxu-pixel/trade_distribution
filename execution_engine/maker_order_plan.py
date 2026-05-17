@@ -18,7 +18,7 @@ class PlannerLimits:
     min_q_margin: float = 0.02
     min_f_kelly: float = 0.005
     tick_size: float = 0.01
-    min_price: float = 0.01
+    min_price: float = 0.30
     max_price: float = 0.99
     max_limit_price: float = 0.80
     min_market_count: int = 20
@@ -31,7 +31,7 @@ class BestBidLadderConfig:
     second_offset: float = 0.10
     shares: float = 5.0
     tick_size: float = 0.01
-    min_price: float = 0.01
+    min_price: float = 0.30
 
 
 def build_best_bid_ladder_plan(

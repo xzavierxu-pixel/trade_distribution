@@ -171,6 +171,7 @@ def export_artifact(
             "max_total_budget_usdc": 10.0,
             "max_order_budget_usdc": 4.0,
             "min_shares": 5.0,
+            "min_price": 0.30,
             "fractional_kelly": 0.25,
             "min_market_count": 20,
             "allowed_fallback_levels": ["level_0", "level_1"],

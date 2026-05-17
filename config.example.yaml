@@ -35,7 +35,7 @@ orders:
   max_orders_per_window: 3
   maker_only: true
   tick_size: 0.01
-  min_price: 0.01
+  min_price: 0.30
   max_price: 0.99
   max_limit_price: 0.80
   min_market_count: 20

@@ -24,7 +24,7 @@ class OrdersConfig:
     max_orders_per_window: int = 3
     maker_only: bool = True
     tick_size: float = 0.01
-    min_price: float = 0.01
+    min_price: float = 0.30
     max_price: float = 0.99
     max_limit_price: float = 0.80
     min_market_count: int = 20
@@ -131,7 +131,7 @@ def load_engine_config(path: str | Path) -> EngineConfig:
             max_orders_per_window=int(orders.get("max_orders_per_window", 3)),
             maker_only=bool(orders.get("maker_only", True)),
             tick_size=float(orders.get("tick_size", 0.01)),
-            min_price=float(orders.get("min_price", 0.01)),
+            min_price=float(orders.get("min_price", 0.30)),
             max_price=float(orders.get("max_price", 0.99)),
             max_limit_price=float(orders.get("max_limit_price", 0.80)),
             min_market_count=int(orders.get("min_market_count", 20)),
