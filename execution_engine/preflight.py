@@ -1,8 +1,10 @@
 from __future__ import annotations
 
 import argparse
+import importlib.util
 import json
 import os
+import re
 from pathlib import Path
 from typing import Any
 
@@ -45,6 +47,12 @@ def run_preflight(config_path: Path, mode: str = "paper") -> dict[str, Any]:
         checks["orders_enabled_for_live"] = bool(cfg.orders.enabled)
         checks["manifest_allows_live"] = bool(manifest.get("live_eligible"))
         checks["credentials_present_for_live"] = all(credential_presence.values())
+        checks["signature_type_poly_1271"] = cfg.polymarket.signature_type == 3
+        checks["deposit_wallet_env_used"] = cfg.polymarket.funder_env == "DEPOSIT_WALLET_ADDRESS"
+        funder = os.getenv(cfg.polymarket.funder_env, "")
+        checks["deposit_wallet_format_valid"] = bool(re.fullmatch(r"0x[a-fA-F0-9]{40}", funder))
+        checks["py_clob_client_available"] = importlib.util.find_spec("py_clob_client") is not None
+        checks["py_builder_relayer_client_available"] = importlib.util.find_spec("py_builder_relayer_client") is not None
     else:
         checks["orders_disabled_by_default"] = not cfg.orders.enabled
         checks["runtime_mode_paper"] = cfg.runtime.mode == "paper"

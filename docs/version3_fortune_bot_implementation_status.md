@@ -94,8 +94,9 @@ python -m execution_engine.preflight --config config.example.yaml --mode live --
 ```
 
 Expected current result: paper preflight passes; live preflight fails because
-orders are disabled, credentials are not present, and the manifest is not live
-eligible.
+orders are disabled, credentials are not present, the manifest is not live
+eligible, and live deposit-wallet checks require POLY_1271/signature type 3
+with `DEPOSIT_WALLET_ADDRESS`.
 
 Paper observation:
 
@@ -137,6 +138,7 @@ self-test exercises one no-sleep cycle.
 | Summary JSON file | configured path is written in normal environments; local Windows sandbox denies writes after pandas/sklearn import | Weakly verified locally |
 | Live default off | `config.example.yaml` has `runtime.mode=paper`, `orders.enabled=false` | Done |
 | Live requires explicit gates | `run_once` requires `orders.enabled=true` and `live_eligible=true` | Done |
+| Deposit-wallet live preflight | `execution_engine/preflight.py` requires `signature_type=3`, `DEPOSIT_WALLET_ADDRESS`, valid wallet-address shape, and Polymarket client packages before live | Implemented; real credential smoke not run |
 | Polymarket live adapter | `execution_engine/polymarket_adapter.py` | Implemented but not live-tested |
 | version3 deployment script | `deploy/version3_deploy.ps1` | Executed paper-only; timer later enabled manually after smoke |
 | version3 rollback script | `deploy/version3_rollback.ps1` | Implemented but not executed |

@@ -48,7 +48,7 @@ class PolymarketConfig:
     gamma_base_url: str = "https://gamma-api.polymarket.com"
     data_api_url: str = "https://data-api.polymarket.com"
     chain_id: int = 137
-    signature_type: int = 1
+    signature_type: int = 3
     private_key_env: str = "POLYMARKET_PRIVATE_KEY"
     api_key_env: str = "CLOB_API_KEY"
     api_secret_env: str = "CLOB_SECRET"
@@ -108,7 +108,7 @@ def load_engine_config(path: str | Path) -> EngineConfig:
             gamma_base_url=str(polymarket.get("gamma_base_url", "https://gamma-api.polymarket.com")),
             data_api_url=str(polymarket.get("data_api_url", "https://data-api.polymarket.com")),
             chain_id=int(polymarket.get("chain_id", 137)),
-            signature_type=int(polymarket.get("signature_type", 1)),
+            signature_type=int(polymarket.get("signature_type", 3)),
             private_key_env=str(polymarket.get("private_key_env", "POLYMARKET_PRIVATE_KEY")),
             api_key_env=str(polymarket.get("api_key_env", "CLOB_API_KEY")),
             api_secret_env=str(polymarket.get("api_secret_env", "CLOB_SECRET")),

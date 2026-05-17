@@ -251,6 +251,10 @@ def _check_bundle_text_contracts(bundle: Path, names: list[str], findings: list[
         findings.append({"level": "error", "item": "config.example.yaml.runtime.mode", "message": "default mode must be paper"})
     if "enabled: false" not in config_text:
         findings.append({"level": "error", "item": "config.example.yaml.orders.enabled", "message": "orders must default to disabled"})
+    if "signature_type: 3" not in config_text:
+        findings.append({"level": "error", "item": "config.example.yaml.polymarket.signature_type", "message": "deposit-wallet flow must default to POLY_1271/signature type 3"})
+    if "funder_env: DEPOSIT_WALLET_ADDRESS" not in config_text:
+        findings.append({"level": "error", "item": "config.example.yaml.polymarket.funder_env", "message": "deposit-wallet flow must use DEPOSIT_WALLET_ADDRESS"})
     if "--mode paper" not in service_text:
         findings.append({"level": "error", "item": "fortune-bot.service", "message": "systemd service must run paper mode by default"})
     for expected in ["verify_prd", "self_test", "preflight", "run_once --config config.yaml --mode paper", "observe_paper"]:

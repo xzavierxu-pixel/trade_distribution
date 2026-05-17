@@ -336,7 +336,7 @@ find ~/fortune_bot -mindepth 1 -maxdepth 1 -exec rm -rf {} +
 - 清空目录前必须确认当前路径等于目标 `fortune_bot`。
 - 不允许对空变量执行 `rm -rf "$TARGET"`。
 - 不允许在 PRD 或日志中打印 `secrets.env` 内容。
-- Polymarket CLOB v2 runtime 使用 `POLYMARKET_SIGNATURE_TYPE=1`；如后续切换到其他 wallet/signature flow，必须先更新配置、文档和 smoke test。
+- Polymarket CLOB v2 deposit-wallet runtime 使用 `POLYMARKET_SIGNATURE_TYPE=3` / POLY_1271；如后续切换到其他 wallet/signature flow，必须先更新配置、文档和 smoke test。
 - 优先使用 `DEPOSIT_WALLET_ADDRESS`，不要依赖 UI 猜测 funder。
 
 ## 12. 配置要求
@@ -378,7 +378,7 @@ polymarket:
   gamma_base_url: https://gamma-api.polymarket.com
   data_api_url: https://data-api.polymarket.com
   chain_id: 137
-  signature_type: 1
+  signature_type: 3
   private_key_env: POLYMARKET_PRIVATE_KEY
   api_key_env: CLOB_API_KEY
   api_secret_env: CLOB_SECRET
@@ -495,7 +495,7 @@ PRD/文档验收：
 
 - 只提交 maker limit buy。
 - 预算、价格、shares、正 EV、idempotency 约束全部生效。
-- Polymarket CLOB v2 使用 `POLYMARKET_SIGNATURE_TYPE=1`，并通过 smoke test 验证 signer、funder、CLOB credentials 三者一致。
+- Polymarket CLOB v2 deposit-wallet flow 使用 `POLYMARKET_SIGNATURE_TYPE=3` / POLY_1271，并通过 smoke test 验证 signer、funder、CLOB credentials 三者一致。
 
 ## 17. 实施顺序
 
