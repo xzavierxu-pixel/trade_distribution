@@ -56,7 +56,7 @@ find "$TARGET" -mindepth 1 -maxdepth 1 -exec rm -rf {} +
 tar -xzf "$BUNDLE" -C "$TARGET"
 
 cd "$TARGET"
-python3 -m venv .venv
+python3.11 -m venv .venv
 . .venv/bin/activate
 python -m pip install --upgrade pip
 python -m pip install -r requirements.txt
