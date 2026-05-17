@@ -8,4 +8,3 @@ Type=oneshot
 WorkingDirectory=%h/fortune_bot
 EnvironmentFile=-%h/fortune_bot/execution_engine/secrets.env
 ExecStart=%h/fortune_bot/.venv/bin/python -m execution_engine.run_once --config %h/fortune_bot/config.yaml --mode paper --print-json
-
