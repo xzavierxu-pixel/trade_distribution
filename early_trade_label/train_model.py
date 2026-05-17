@@ -81,6 +81,32 @@ def split_time(dataset: pd.DataFrame, train_fraction: float, purge_minutes: int)
     return train, val
 
 
+def split_time_with_holdout(
+    dataset: pd.DataFrame,
+    train_fraction: float,
+    holdout_fraction: float,
+    purge_minutes: int,
+) -> tuple[pd.DataFrame, pd.DataFrame, pd.DataFrame]:
+    if holdout_fraction <= 0:
+        train, val = split_time(dataset, train_fraction, purge_minutes)
+        return train, val, dataset.iloc[0:0].copy()
+    if train_fraction + holdout_fraction >= 0.95:
+        raise ValueError("train_fraction + holdout_fraction must leave validation data")
+    df = dataset.sort_values("market_start_ts").reset_index(drop=True)
+    train_cut = int(len(df) * train_fraction)
+    holdout_cut = int(len(df) * (1.0 - holdout_fraction))
+    train = df.iloc[:train_cut].copy()
+    val = df.iloc[train_cut:holdout_cut].copy()
+    holdout = df.iloc[holdout_cut:].copy()
+    if purge_minutes > 0:
+        purge_seconds = purge_minutes * 60
+        if not train.empty and not val.empty:
+            val = val[val["market_start_ts"] >= train["market_start_ts"].max() + purge_seconds].copy()
+        if not val.empty and not holdout.empty:
+            holdout = holdout[holdout["market_start_ts"] >= val["market_start_ts"].max() + purge_seconds].copy()
+    return train, val, holdout
+
+
 def feature_columns(df: pd.DataFrame) -> list[str]:
     cols = []
     for col in df.columns:
@@ -137,24 +163,35 @@ def train(
     threshold_step: float,
     random_state: int,
     feature_window_seconds: int = 120,
+    holdout_fraction: float = 0.15,
+    model_names: list[str] | None = None,
 ) -> None:
     outdir.mkdir(parents=True, exist_ok=True)
     dataset = pd.read_parquet(dataset_path)
-    train_df, val_df = split_time(dataset, train_fraction, purge_minutes)
+    train_df, val_df, holdout_df = split_time_with_holdout(dataset, train_fraction, holdout_fraction, purge_minutes)
     cols = feature_columns(dataset)
     if not cols:
         raise ValueError("No numeric feature columns available for training")
     x_train, y_train = train_df[cols], train_df["label"].astype(int)
     x_val, y_val = val_df[cols], val_df["label"].astype(int)
+    x_holdout = holdout_df[cols] if not holdout_df.empty else None
     train_df.to_parquet(outdir / "features_train.parquet", index=False)
     val_df.to_parquet(outdir / "features_validation.parquet", index=False)
+    if not holdout_df.empty:
+        holdout_df.to_parquet(outdir / "features_holdout.parquet", index=False)
 
     best_name = ""
     best_model: Pipeline | None = None
     best_score = (float("-inf"), float("-inf"), float("-inf"), float("-inf"))
     selection_rows = []
     baseline = float(max(y_val.mean(), 1 - y_val.mean()))
-    for name, model in candidates(random_state).items():
+    model_candidates = candidates(random_state)
+    if model_names:
+        missing = sorted(set(model_names) - set(model_candidates))
+        if missing:
+            raise ValueError(f"unknown model names: {missing}")
+        model_candidates = {name: model_candidates[name] for name in model_names}
+    for name, model in model_candidates.items():
         model.fit(x_train, y_train)
         p_val = model.predict_proba(x_val)[:, 1]
         auc = roc_auc_score(y_val, p_val) if len(np.unique(y_val)) == 2 else 0.5
@@ -169,7 +206,7 @@ def train(
     if best_model is None:
         fallback = max(selection_rows, key=_model_selection_key)
         best_name = str(fallback["model"])
-        best_model = candidates(random_state)[best_name]
+        best_model = model_candidates[best_name]
         best_model.fit(x_train, y_train)
         best_score = _model_selection_key(fallback)
     assert best_model is not None
@@ -178,14 +215,22 @@ def train(
     val_pred = val_df[["condition_id", "market_start_ts", "final_outcome", "label"]].copy()
     train_pred["p_up"] = best_model.predict_proba(x_train)[:, 1]
     val_pred["p_up"] = best_model.predict_proba(x_val)[:, 1]
+    holdout_pred = None
+    if x_holdout is not None:
+        holdout_pred = holdout_df[["condition_id", "market_start_ts", "final_outcome", "label"]].copy()
+        holdout_pred["p_up"] = best_model.predict_proba(x_holdout)[:, 1]
 
-    evaluation = write_evaluation(project, cols, train_pred, val_pred, outdir, min_coverage, threshold_step, feature_window_seconds)
+    evaluation = write_evaluation(project, cols, train_pred, val_pred, outdir, min_coverage, threshold_step, feature_window_seconds, holdout_pred)
     t_up = evaluation["decision_policy"]["selected_t_up"]
     t_down = evaluation["decision_policy"]["selected_t_down"]
     train_pred["prediction"] = apply_policy(train_pred["p_up"].to_numpy(), t_up, t_down)
     val_pred["prediction"] = apply_policy(val_pred["p_up"].to_numpy(), t_up, t_down)
+    if holdout_pred is not None:
+        holdout_pred["prediction"] = apply_policy(holdout_pred["p_up"].to_numpy(), t_up, t_down)
     train_pred.to_csv(outdir / "predictions_train.csv", index=False)
     val_pred.to_csv(outdir / "predictions_validation.csv", index=False)
+    if holdout_pred is not None:
+        holdout_pred.to_csv(outdir / "predictions_holdout.csv", index=False)
 
     importance = make_importance(best_model, cols, x_val, y_val, random_state)
     write_reports(train_pred.merge(train_df[["condition_id"] + [c for c in ["hour_utc"] if c in train_df.columns]], on="condition_id", how="left"),
@@ -244,6 +289,8 @@ def main() -> None:
     parser.add_argument("--threshold-step", type=float, default=0.005)
     parser.add_argument("--random-state", type=int, default=42)
     parser.add_argument("--feature-window-seconds", type=int, default=120)
+    parser.add_argument("--holdout-fraction", type=float, default=0.15)
+    parser.add_argument("--models", default=None, help="Comma-separated candidate model names to train")
     args = parser.parse_args()
     train(
         args.dataset,
@@ -255,6 +302,8 @@ def main() -> None:
         args.threshold_step,
         args.random_state,
         args.feature_window_seconds,
+        args.holdout_fraction,
+        [x.strip() for x in args.models.split(",") if x.strip()] if args.models else None,
     )
 
 

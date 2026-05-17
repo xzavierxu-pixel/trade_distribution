@@ -102,6 +102,7 @@ def _check_file_hashes(artifact_dir: Path, manifest: dict[str, Any], findings: l
 
 def _check_model_gates(manifest: dict[str, Any], require_live: bool, findings: list[dict[str, str]]) -> None:
     val = manifest.get("validation_metrics") or {}
+    holdout = manifest.get("holdout_metrics") or {}
     policy = manifest.get("decision_policy") or {}
     gates = {
         "coverage_gte_0_70": float(val.get("coverage", 0.0)) >= 0.70,
@@ -111,6 +112,13 @@ def _check_model_gates(manifest: dict[str, Any], require_live: bool, findings: l
         "down_prediction_count_gte_200": int(val.get("down_prediction_count", 0)) >= 200,
         "coverage_constraint_satisfied": bool(policy.get("coverage_constraint_satisfied", False)),
     }
+    if holdout:
+        gates.update(
+            {
+                "holdout_coverage_gte_0_70": float(holdout.get("coverage", 0.0)) >= 0.70,
+                "holdout_accepted_sample_accuracy_gt_0_80": float(holdout.get("accepted_sample_accuracy", 0.0)) > MIN_ACCEPTED_SAMPLE_ACCURACY,
+            }
+        )
     computed_live = all(gates.values())
     if bool(manifest.get("live_eligible")) != computed_live:
         findings.append({"level": "error", "item": "live_eligible", "message": "does not match computed model gates"})

@@ -45,6 +45,7 @@ def write_evaluation(
     min_coverage: float,
     threshold_step: float,
     feature_window_seconds: int,
+    holdout_pred: pd.DataFrame | None = None,
 ) -> dict[str, Any]:
     outdir.mkdir(parents=True, exist_ok=True)
     baseline = float(max(val_pred["label"].mean(), 1 - val_pred["label"].mean()))
@@ -57,6 +58,11 @@ def write_evaluation(
     val_metrics = score_policy(val_pred["label"].to_numpy(), val_pred["p_up"].to_numpy(), t_up, t_down, baseline)
     train_metrics = add_prob_metrics(train_metrics, train_pred["label"].to_numpy(), train_pred["p_up"].to_numpy())
     val_metrics = add_prob_metrics(val_metrics, val_pred["label"].to_numpy(), val_pred["p_up"].to_numpy())
+    holdout_metrics = None
+    if holdout_pred is not None and not holdout_pred.empty:
+        holdout_baseline = float(max(holdout_pred["label"].mean(), 1 - holdout_pred["label"].mean()))
+        holdout_metrics = score_policy(holdout_pred["label"].to_numpy(), holdout_pred["p_up"].to_numpy(), t_up, t_down, holdout_baseline)
+        holdout_metrics = add_prob_metrics(holdout_metrics, holdout_pred["label"].to_numpy(), holdout_pred["p_up"].to_numpy())
     result = {
         "project": project,
         "market": "BTC/USDT",
@@ -77,8 +83,10 @@ def write_evaluation(
         "probability_summary": probability_summary(train_pred, val_pred),
         "train_window": window(train_pred),
         "validation_window": window(val_pred),
+        "holdout_window": window(holdout_pred) if holdout_pred is not None and not holdout_pred.empty else None,
         "train_metrics": train_metrics,
         "validation_metrics": val_metrics,
+        "holdout_metrics": holdout_metrics,
         "threshold_search_path": "threshold_search.csv",
         "feature_importance_path": "feature_importance.csv",
         "probability_deciles_path": "probability_deciles.csv",

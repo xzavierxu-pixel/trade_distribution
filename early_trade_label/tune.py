@@ -18,8 +18,8 @@ from sklearn.metrics import roc_auc_score
 from sklearn.pipeline import Pipeline
 from sklearn.preprocessing import StandardScaler
 
-from early_trade_label.threshold_search import choose_best, search_thresholds
-from early_trade_label.train_model import feature_columns, split_time
+from early_trade_label.threshold_search import choose_best, score_policy, search_thresholds
+from early_trade_label.train_model import feature_columns, split_time_with_holdout
 
 
 MIN_ACCEPTED_SAMPLE_ACCURACY = 0.80
@@ -115,21 +115,33 @@ def run_tuning_audit(
     min_coverage: float = 0.70,
     threshold_step: float = 0.005,
     random_state: int = 42,
+    holdout_fraction: float = 0.15,
+    model_names: list[str] | None = None,
 ) -> dict[str, Any]:
     outdir.mkdir(parents=True, exist_ok=True)
     dataset = pd.read_parquet(dataset_path)
-    train_df, val_df = split_time(dataset, train_fraction, purge_minutes)
+    train_df, val_df, holdout_df = split_time_with_holdout(dataset, train_fraction, holdout_fraction, purge_minutes)
     cols = feature_columns(dataset)
     x_train, y_train = train_df[cols], train_df["label"].astype(int).to_numpy()
     x_val, y_val = val_df[cols], val_df["label"].astype(int).to_numpy()
+    x_holdout, y_holdout = holdout_df[cols], holdout_df["label"].astype(int).to_numpy()
     baseline = float(max(y_val.mean(), 1 - y_val.mean()))
 
     rows = []
-    for name, model in candidate_models(random_state).items():
+    model_candidates = candidate_models(random_state)
+    if model_names:
+        missing = sorted(set(model_names) - set(model_candidates))
+        if missing:
+            raise ValueError(f"unknown model names: {missing}")
+        model_candidates = {name: model_candidates[name] for name in model_names}
+    for name, model in model_candidates.items():
         model.fit(x_train, y_train)
         p_val = model.predict_proba(x_val)[:, 1]
         search = search_thresholds(y_val, p_val, min_coverage, threshold_step, baseline)
         chosen = choose_best(search, min_coverage)
+        p_holdout = model.predict_proba(x_holdout)[:, 1] if len(holdout_df) else np.array([])
+        holdout_baseline = float(max(y_holdout.mean(), 1 - y_holdout.mean())) if len(holdout_df) else baseline
+        holdout = score_policy(y_holdout, p_holdout, float(chosen["selected_t_up"]), float(chosen["selected_t_down"]), holdout_baseline) if len(holdout_df) else {}
         rows.append({
             "model": name,
             "roc_auc": float(roc_auc_score(y_val, p_val)) if len(np.unique(y_val)) == 2 else float("nan"),
@@ -142,6 +154,11 @@ def run_tuning_audit(
             "selected_t_down": float(chosen["selected_t_down"]),
             "selection_score": float(chosen["selection_score"]),
             "coverage_constraint_satisfied": bool(chosen["coverage_constraint_satisfied"]),
+            "holdout_coverage": float(holdout.get("coverage", float("nan"))),
+            "holdout_accepted_sample_accuracy": float(holdout.get("accepted_sample_accuracy", float("nan"))),
+            "holdout_accepted_count": int(holdout.get("accepted_count", 0)),
+            "holdout_up_prediction_count": int(holdout.get("up_prediction_count", 0)),
+            "holdout_down_prediction_count": int(holdout.get("down_prediction_count", 0)),
         })
 
     result_df = pd.DataFrame(rows).sort_values(
@@ -157,16 +174,20 @@ def run_tuning_audit(
         "accepted_count_gte_1000": int(best["accepted_count"]) >= 1000,
         "up_prediction_count_gte_200": int(best["up_prediction_count"]) >= 200,
         "down_prediction_count_gte_200": int(best["down_prediction_count"]) >= 200,
+        "holdout_coverage_gte_0_70": float(best.get("holdout_coverage", 0.0)) >= 0.70,
+        "holdout_accepted_sample_accuracy_gt_0_80": float(best.get("holdout_accepted_sample_accuracy", 0.0)) > MIN_ACCEPTED_SAMPLE_ACCURACY,
     }
     report = {
         "created_at_utc": datetime.now(timezone.utc).isoformat(),
         "dataset_path": str(dataset_path),
         "train_fraction": train_fraction,
         "purge_minutes": purge_minutes,
+        "holdout_fraction": holdout_fraction,
         "min_coverage": min_coverage,
         "threshold_step": threshold_step,
         "train_rows": int(len(train_df)),
         "validation_rows": int(len(val_df)),
+        "holdout_rows": int(len(holdout_df)),
         "candidate_count": int(len(result_df)),
         "candidates": rows,
         "best_candidate": best,
@@ -211,6 +232,8 @@ def main() -> None:
     parser.add_argument("--min-coverage", type=float, default=0.70)
     parser.add_argument("--threshold-step", type=float, default=0.005)
     parser.add_argument("--random-state", type=int, default=42)
+    parser.add_argument("--holdout-fraction", type=float, default=0.15)
+    parser.add_argument("--models", default=None, help="Comma-separated candidate model names to audit")
     args = parser.parse_args()
     report = run_tuning_audit(
         args.dataset,
@@ -220,6 +243,8 @@ def main() -> None:
         args.min_coverage,
         args.threshold_step,
         args.random_state,
+        args.holdout_fraction,
+        [x.strip() for x in args.models.split(",") if x.strip()] if args.models else None,
     )
     print(json.dumps(report, indent=2, allow_nan=True))
 

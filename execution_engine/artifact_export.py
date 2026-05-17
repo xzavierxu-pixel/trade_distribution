@@ -21,6 +21,8 @@ OPTIONAL_MODEL_FILES = [
     "false_up_slices.csv",
     "false_down_slices.csv",
     "features_validation.parquet",
+    "features_holdout.parquet",
+    "predictions_holdout.csv",
     "tuning_report.json",
     "tuning_candidates.csv",
 ]
@@ -60,7 +62,9 @@ def export_artifact(
 
     evaluation = json.loads((model_dir / "evaluation.json").read_text(encoding="utf-8"))
     val = evaluation["validation_metrics"]
+    holdout = evaluation.get("holdout_metrics") or {}
     policy = evaluation["decision_policy"]
+    holdout_gates = _metric_gates(holdout, "holdout") if holdout else {}
     live_eligible = (
         float(val.get("coverage", 0.0)) >= 0.70
         and float(val.get("accepted_sample_accuracy", 0.0)) > MIN_ACCEPTED_SAMPLE_ACCURACY
@@ -68,6 +72,7 @@ def export_artifact(
         and int(val.get("up_prediction_count", 0)) >= 200
         and int(val.get("down_prediction_count", 0)) >= 200
         and bool(policy.get("coverage_constraint_satisfied", False))
+        and all(holdout_gates.values())
     )
     gate_checks = {
         "coverage_gte_0_70": float(val.get("coverage", 0.0)) >= 0.70,
@@ -77,6 +82,7 @@ def export_artifact(
         "down_prediction_count_gte_200": int(val.get("down_prediction_count", 0)) >= 200,
         "coverage_constraint_satisfied": bool(policy.get("coverage_constraint_satisfied", False)),
     }
+    gate_checks.update(holdout_gates)
     blocked_reasons = [name for name, passed in gate_checks.items() if not passed]
     manifest = {
         "project": "btc-polymarket-5m-maker",
@@ -104,6 +110,13 @@ def export_artifact(
             "up_prediction_count": int(val.get("up_prediction_count", 0)),
             "down_prediction_count": int(val.get("down_prediction_count", 0)),
         },
+        "holdout_metrics": {
+            "coverage": float(holdout.get("coverage", 0.0)),
+            "accepted_sample_accuracy": float(holdout.get("accepted_sample_accuracy", 0.0)),
+            "accepted_count": int(holdout.get("accepted_count", 0)),
+            "up_prediction_count": int(holdout.get("up_prediction_count", 0)),
+            "down_prediction_count": int(holdout.get("down_prediction_count", 0)),
+        } if holdout else None,
         "decision_policy": {
             "coverage_constraint_satisfied": bool(policy.get("coverage_constraint_satisfied", False)),
         },
@@ -144,6 +157,13 @@ def sha256_file(path: Path) -> str:
         for chunk in iter(lambda: f.read(1024 * 1024), b""):
             h.update(chunk)
     return h.hexdigest()
+
+
+def _metric_gates(metrics: dict[str, Any], prefix: str) -> dict[str, bool]:
+    return {
+        f"{prefix}_coverage_gte_0_70": float(metrics.get("coverage", 0.0)) >= 0.70,
+        f"{prefix}_accepted_sample_accuracy_gt_0_80": float(metrics.get("accepted_sample_accuracy", 0.0)) > MIN_ACCEPTED_SAMPLE_ACCURACY,
+    }
 
 
 def _copy_file(src: Path, dst: Path) -> None:
