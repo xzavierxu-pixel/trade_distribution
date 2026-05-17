@@ -49,8 +49,8 @@ class FeaturesConfig:
 
 @dataclass(frozen=True)
 class ThresholdsConfig:
-    t_up: float | None = None
-    t_down: float | None = None
+    t_up: float | None = 0.51
+    t_down: float | None = 0.49
 
 
 @dataclass(frozen=True)

@@ -3,7 +3,7 @@ baseline:
   manifest_file: artifact_manifest.json
 
 runtime:
-  mode: paper
+  mode: live
   audit_log: artifacts/logs/execution_engine/live.jsonl
   summary_dir: artifacts/logs/execution_engine/summaries
   idempotency_store_path: artifacts/state/execution_engine/idempotency.json
@@ -19,7 +19,7 @@ thresholds:
   t_down: 0.49
 
 orders:
-  enabled: false
+  enabled: true
   planner: best_bid_ladder
   kelly_fallback_enabled: false
   best_bid_ladder_max_price: 0.80

@@ -28,6 +28,13 @@ def run_once(config_path: Path, mode: str | None = None, print_json: bool = Fals
     manifest = json.loads((artifact_dir / cfg.baseline.manifest_file).read_text(encoding="utf-8"))
     if runtime_mode == "live" and (not cfg.orders.enabled or not manifest.get("live_eligible", False)):
         raise RuntimeError("live mode requires orders.enabled=true and artifact_manifest.live_eligible=true")
+    timing_summary = _live_timing_gate_summary(cfg, runtime_mode, manifest)
+    if timing_summary is not None:
+        _append_audit_log(cfg.runtime.audit_log, timing_summary)
+        _write_summary(cfg.runtime.summary_dir, timing_summary)
+        if print_json:
+            print(json.dumps(timing_summary, indent=2))
+        return timing_summary
     with (artifact_dir / manifest["model_file"]).open("rb") as f:
         model = pickle.load(f)
     feature_columns = json.loads((artifact_dir / manifest["feature_columns_file"]).read_text(encoding="utf-8"))
@@ -122,6 +129,49 @@ def run_once(config_path: Path, mode: str | None = None, print_json: bool = Fals
     if print_json:
         print(json.dumps(summary, indent=2))
     return summary
+
+
+def _live_timing_gate_summary(cfg: Any, runtime_mode: str, manifest: dict[str, Any]) -> dict[str, Any] | None:
+    if runtime_mode != "live" or cfg.features.source != "polymarket_live":
+        return None
+    now = datetime.now(timezone.utc)
+    now_ts = int(now.timestamp())
+    market_start_ts = now_ts - (now_ts % 300)
+    elapsed_seconds = now_ts - market_start_ts
+    decision_second = int(cfg.features.feature_window_seconds)
+    if elapsed_seconds >= decision_second:
+        return None
+    return {
+        "timestamp_utc": now.isoformat(),
+        "mode": runtime_mode,
+        "model_version": manifest["model_version"],
+        "artifact_hash": manifest.get("artifact_hash"),
+        "market": {"condition_id": "", "market_start_ts": market_start_ts},
+        "window": {
+            "decision_second": decision_second,
+            "elapsed_seconds": elapsed_seconds,
+            "timing_ready": False,
+        },
+        "features": {
+            "feature_count": 0,
+            "source": cfg.features.source,
+            "feature_window_seconds": decision_second,
+        },
+        "p_up": None,
+        "p_down": None,
+        "thresholds": {"t_up": cfg.thresholds.t_up, "t_down": cfg.thresholds.t_down},
+        "decision": "skip",
+        "planner": cfg.orders.planner,
+        "best_bid": None,
+        "q": None,
+        "q_source": None,
+        "candidate_orders": [],
+        "selected_orders": [],
+        "duplicate_orders": [],
+        "skip_reasons": {"timing_not_ready": 1},
+        "polymarket_response_status": "timing_not_ready",
+        "polymarket_responses": [],
+    }
 
 
 def _read_json_if_exists(path: Path) -> dict[str, Any] | None:
