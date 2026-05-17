@@ -200,8 +200,8 @@ edge_j = q * a_j * (1 / p_j - 1) - (1 - q) * b
 离线 `a_j` 表：
 
 - 输出文件：`deploy/<model_version>/maker_fill_table.parquet` 或 `.csv`。
-- 维度至少包含：`prediction_side`、`decision_second_bucket`、`current_price_bucket`、`order_delay_seconds`、`limit_price`。
-- 指标至少包含：`win_market_count`、`win_fill_market_count`、`a_win_market_fill`、`lose_market_count`、`lose_fill_market_count`、`a_lose_market_fill`。
+- 维度至少包含：`decision_time_regime`、`current_price_bucket`、`limit_price_anchor`。
+- 指标至少包含：`win_market_count`、`win_fill_market_count`、`a_win_market_fill`、`a_win_LCB`、`lose_market_count`、`lose_fill_market_count`、`a_lose_market_fill`、`q_market`、`q_market_LCB`、`q_required`、`q_margin`、`f_kelly`、`is_valid_maker_candidate`。
 - 样本数不足的 bucket 必须回退到更粗粒度 bucket，并在输出中标记 fallback level。
 
 ## 9. 执行引擎改造范围
@@ -366,8 +366,11 @@ thresholds:
 
 orders:
   enabled: false
-  planner: maker_ev
-  max_total_budget_usdc: 7.0
+  planner: maker_kelly
+  fractional_kelly: 0.25
+  min_q_margin: 0.02
+  min_f_kelly: 0.005
+  max_total_budget_usdc: 10.0
   max_order_budget_usdc: 4.0
   min_shares: 5.0
   max_orders_per_window: 3

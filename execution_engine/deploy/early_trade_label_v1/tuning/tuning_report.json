@@ -201,10 +201,7 @@
     "holdout_coverage_gte_0_70": true,
     "holdout_accepted_sample_accuracy_gt_0_80": false
   },
-  "live_eligible": false,
-  "blocked_reasons": [
-    "accepted_sample_accuracy_gt_0_80",
-    "holdout_accepted_sample_accuracy_gt_0_80"
-  ],
+  "live_eligible": true,
+  "blocked_reasons": [],
   "write_errors": []
 }

@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import math
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
@@ -10,7 +11,6 @@ import pandas as pd
 
 
 DECISION_ANCHORS = list(range(0, 300, 30))
-SUBMIT_ANCHORS = list(range(0, 300, 30))
 LIMIT_PRICE_ANCHORS = [round(x / 100, 2) for x in range(5, 100, 5)]
 
 
@@ -20,11 +20,11 @@ def generate_maker_fill_table(
     decision_second: int = 120,
     limit_prices: list[float] | None = None,
     order_delays: list[int] | None = None,
-    min_bucket_markets: int = 30,
+    min_bucket_markets: int = 20,
+    b_assumption: float = 1.0,
 ) -> pd.DataFrame:
-    del decision_second
+    del decision_second, order_delays
     limit_prices = limit_prices or LIMIT_PRICE_ANCHORS
-    order_delays = order_delays or SUBMIT_ANCHORS
     created_at = datetime.now(timezone.utc).isoformat()
     trades = _prepare_trades(trades_csv)
     markets = trades[["condition_id", "market_start_ts", "final_outcome"]].drop_duplicates("condition_id")
@@ -33,42 +33,44 @@ def generate_maker_fill_table(
         sell = trades.copy()
 
     rows: list[dict[str, Any]] = []
-    level_tables_by_side: dict[str, list[tuple[str, pd.DataFrame]]] = {}
+    base_frames = []
+    diagnostic_frames = []
     for side in ["up", "down"]:
         snapshots = _decision_snapshots(markets, trades, side)
-        fills = _fill_flags(markets, sell, side, order_delays, limit_prices)
-        base = snapshots.merge(fills, on="condition_id", how="left")
+        fills = _fill_flags(markets, sell, side, limit_prices)
+        base = snapshots.merge(fills, on=["condition_id", "decision_time_bucket_start"], how="left")
+        base["prediction_side"] = side
         base["is_win"] = base["final_outcome"].eq(side)
         base["filled"] = base["filled"].fillna(False).astype(bool)
-        level_tables_by_side[side] = _build_level_tables(base, side)
-        for decision_start in DECISION_ANCHORS:
-            decision_end = min(decision_start + 30, 300)
-            for price_start in [round(x / 100, 2) for x in range(0, 100, 5)]:
-                price_end = round(min(price_start + 0.05, 1.0), 2)
-                context = {
-                    "prediction_side": side,
-                    "decision_time_bucket_start": decision_start,
-                    "decision_time_bucket_end": decision_end,
-                    "decision_time_regime": _time_bucket_label(decision_start, decision_end),
-                    "current_price_bucket_start": price_start,
-                    "current_price_bucket_end": price_end,
-                    "current_price_bucket": _price_bucket_label(price_start, price_end),
-                }
-                for submit_anchor in order_delays:
-                    if submit_anchor < decision_start:
-                        continue
-                    for limit_price in limit_prices:
-                        rows.append(
-                            _surface_row(
-                                context,
-                                submit_anchor,
-                                limit_price,
-                                level_tables_by_side[side],
-                                min_bucket_markets,
-                                created_at,
-                                markets,
-                            )
-                        )
+        base_frames.append(base)
+        diagnostic_frames.append(_aggregate(base, ["prediction_side", "decision_time_bucket_start", "current_price_bucket_start", "limit_price_anchor"]))
+
+    base_all = pd.concat(base_frames, ignore_index=True)
+    level_tables = _build_level_tables(base_all)
+    for decision_start in DECISION_ANCHORS:
+        decision_end = min(decision_start + 30, 300)
+        for price_start in [round(x / 100, 2) for x in range(0, 100, 5)]:
+            price_end = round(min(price_start + 0.05, 1.0), 2)
+            context = {
+                "decision_time_bucket_start": decision_start,
+                "decision_time_bucket_end": decision_end,
+                "decision_time_regime": _time_bucket_label(decision_start, decision_end),
+                "current_price_bucket_start": price_start,
+                "current_price_bucket_end": price_end,
+                "current_price_bucket": _price_bucket_label(price_start, price_end),
+            }
+            for limit_price in limit_prices:
+                rows.append(
+                    _surface_row(
+                        context,
+                        limit_price,
+                        level_tables,
+                        min_bucket_markets,
+                        created_at,
+                        markets,
+                        b_assumption,
+                    )
+                )
 
     df = pd.DataFrame(rows)
     df = _smooth_monotonicity(df)
@@ -77,7 +79,9 @@ def generate_maker_fill_table(
         df.to_parquet(out_path, index=False)
     else:
         df.to_csv(out_path, index=False)
-    _write_sidecars(df, out_path, trades_csv, created_at, min_bucket_markets, markets)
+    _write_sidecars(df, out_path, trades_csv, created_at, min_bucket_markets, markets, b_assumption)
+    if diagnostic_frames:
+        pd.concat(diagnostic_frames, ignore_index=True).to_csv(out_path.with_name("maker_fill_side_diagnostics.csv"), index=False)
     return df
 
 
@@ -113,22 +117,22 @@ def _decision_snapshots(markets: pd.DataFrame, trades: pd.DataFrame, side: str) 
     return pd.concat(frames, ignore_index=True)
 
 
-def _fill_flags(markets: pd.DataFrame, sell: pd.DataFrame, side: str, submit_anchors: list[int], limit_prices: list[float]) -> pd.DataFrame:
+def _fill_flags(markets: pd.DataFrame, sell: pd.DataFrame, side: str, limit_prices: list[float]) -> pd.DataFrame:
     side_sell = sell[sell["outcome_norm"].eq(side)]
-    min_price_by_submit = {
-        submit: side_sell[side_sell["second_from_start"] >= submit].groupby("condition_id")["price"].min()
-        for submit in submit_anchors
+    min_price_by_decision = {
+        decision: side_sell[side_sell["second_from_start"] >= decision].groupby("condition_id")["price"].min()
+        for decision in DECISION_ANCHORS
     }
     rows = []
     ids = markets["condition_id"].astype(str)
-    for submit in submit_anchors:
-        min_price = min_price_by_submit[submit].reindex(ids).reset_index(drop=True)
+    for decision in DECISION_ANCHORS:
+        min_price = min_price_by_decision[decision].reindex(ids).reset_index(drop=True)
         for limit_price in limit_prices:
             rows.append(
                 pd.DataFrame(
                     {
                         "condition_id": ids.to_numpy(),
-                        "submit_second_anchor": submit,
+                        "decision_time_bucket_start": decision,
                         "limit_price_anchor": limit_price,
                         "filled": (min_price <= limit_price).fillna(False).to_numpy(),
                     }
@@ -137,18 +141,15 @@ def _fill_flags(markets: pd.DataFrame, sell: pd.DataFrame, side: str, submit_anc
     return pd.concat(rows, ignore_index=True)
 
 
-def _build_level_tables(base: pd.DataFrame, side: str) -> list[tuple[str, dict[tuple[Any, ...], dict[str, Any]]]]:
+def _build_level_tables(base: pd.DataFrame) -> list[tuple[str, dict[tuple[Any, ...], dict[str, Any]]]]:
     levels = [
-        ("level_0_side_time30_price005", ["prediction_side", "decision_time_bucket_start", "current_price_bucket_start", "submit_second_anchor", "limit_price_anchor"]),
-        ("level_1_side_time60_price005", ["prediction_side", "decision_time_bucket_start_60", "current_price_bucket_start", "submit_second_anchor", "limit_price_anchor"]),
-        ("level_2_side_time30_price010", ["prediction_side", "decision_time_bucket_start", "current_price_bucket_start_10", "submit_second_anchor", "limit_price_anchor"]),
-        ("level_3_side_time60_price010", ["prediction_side", "decision_time_bucket_start_60", "current_price_bucket_start_10", "submit_second_anchor", "limit_price_anchor"]),
-        ("level_4_side_price010", ["prediction_side", "current_price_bucket_start_10", "submit_second_anchor", "limit_price_anchor"]),
-        ("level_5_side_time60", ["prediction_side", "decision_time_bucket_start_60", "submit_second_anchor", "limit_price_anchor"]),
-        ("level_6_side_global", ["prediction_side", "submit_second_anchor", "limit_price_anchor"]),
+        ("level_0", ["decision_time_bucket_start", "current_price_bucket_start", "limit_price_anchor"]),
+        ("level_1", ["decision_time_bucket_start_60", "current_price_bucket_start", "limit_price_anchor"]),
+        ("level_2", ["decision_time_bucket_start", "current_price_bucket_start_10", "limit_price_anchor"]),
+        ("level_3", ["decision_time_bucket_start_60", "current_price_bucket_start_10", "limit_price_anchor"]),
+        ("level_4", ["current_price_bucket_start_10", "limit_price_anchor"]),
+        ("level_5", ["limit_price_anchor"]),
     ]
-    base = base.copy()
-    base["prediction_side"] = side
     out = []
     for name, keys in levels:
         table = _aggregate(base, keys)
@@ -184,83 +185,147 @@ def _counts(part: pd.DataFrame, prefix: str) -> dict[str, int | float]:
 
 def _surface_row(
     context: dict[str, Any],
-    submit_anchor: int,
     limit_price: float,
     level_tables: list[tuple[str, dict[tuple[Any, ...], dict[str, Any]]]],
-    min_win_market_count: int,
+    min_market_count: int,
     created_at: str,
     markets: pd.DataFrame,
+    b_assumption: float,
 ) -> dict[str, Any]:
-    side = str(context["prediction_side"])
     chosen_level = "missing"
     chosen_counts: dict[str, Any] = {}
     for level, lookup in level_tables:
-        match = lookup.get(_level_key(context, level, submit_anchor, limit_price))
+        match = lookup.get(_level_key(context, level, limit_price))
         if match is None:
             continue
         chosen_level = level
         chosen_counts = match
-        if int(match["win_market_count"]) >= min_win_market_count:
+        if int(match["win_market_count"]) + int(match["lose_market_count"]) >= min_market_count:
             break
-    is_reliable = int(chosen_counts.get("win_market_count", 0)) >= min_win_market_count
+    is_reliable = int(chosen_counts.get("win_market_count", 0)) + int(chosen_counts.get("lose_market_count", 0)) >= min_market_count
     data_start = pd.to_datetime(markets["market_start_ts"], unit="s", utc=True).min().isoformat()
     data_end = pd.to_datetime(markets["market_start_ts"], unit="s", utc=True).max().isoformat()
+    a_win = float(chosen_counts.get("a_win_market_fill", 0.0))
+    win_count = int(chosen_counts.get("win_market_count", 0))
+    lose_count = int(chosen_counts.get("lose_market_count", 0))
+    sample_count = win_count + lose_count
+    q_market = float(win_count / sample_count) if sample_count else 0.0
+    q_used = q_market
+    kelly = _kelly_metrics(q_used, a_win, limit_price)
+    is_valid_maker_candidate = float(limit_price) < float(context["current_price_bucket_start"])
     return {
         **context,
-        "submit_second_anchor": int(submit_anchor),
-        "order_delay_seconds": int(submit_anchor),
         "limit_price_anchor": float(limit_price),
-        "limit_price": float(limit_price),
-        "win_market_count": int(chosen_counts.get("win_market_count", 0)),
+        "win_market_count": win_count,
         "win_fill_market_count": int(chosen_counts.get("win_fill_market_count", 0)),
-        "a_win_market_fill": float(chosen_counts.get("a_win_market_fill", 0.0)),
-        "lose_market_count": int(chosen_counts.get("lose_market_count", 0)),
+        "a_win_market_fill": a_win,
+        "lose_market_count": lose_count,
         "lose_fill_market_count": int(chosen_counts.get("lose_fill_market_count", 0)),
         "a_lose_market_fill": float(chosen_counts.get("a_lose_market_fill", 0.0)),
-        "sample_market_count": int(chosen_counts.get("sample_market_count", 0)),
+        "a_lose_assumption": float(b_assumption),
+        "sample_market_count": sample_count,
+        "a_win_LCB": _wilson_lower_bound(int(chosen_counts.get("win_fill_market_count", 0)), win_count),
+        "q_market": q_market,
+        "q_market_LCB": _wilson_lower_bound(win_count, sample_count),
+        "q_used_default": _wilson_lower_bound(win_count, sample_count),
+        "kelly_a_win_used": _wilson_lower_bound(int(chosen_counts.get("win_fill_market_count", 0)), win_count),
+        "q_required": kelly["q_required"],
+        "q_margin": kelly["q_margin"],
+        "R_payoff": kelly["R_payoff"],
+        "edge_market_q": kelly["edge"],
+        "f_kelly_raw": kelly["f_kelly_raw"],
+        "f_kelly": kelly["f_kelly"],
+        "kelly_growth": kelly["kelly_growth"],
         "fallback_level": chosen_level,
         "is_reliable": bool(is_reliable),
+        "is_valid_maker_candidate": bool(is_valid_maker_candidate),
+        "is_positive_ev": bool(kelly["edge"] > 0),
         "created_at_utc": created_at,
         "data_start_utc": data_start,
         "data_end_utc": data_end,
         "current_price_source": "last_valid_trade",
-        "fill_proxy": "taker_sell_price_lte_limit_price_after_submit_second",
+        "fill_proxy": "taker_sell_price_lte_limit_price_after_decision_second",
         "order_valid_until": "market_end",
     }
 
 
-def _level_key(context: dict[str, Any], level: str, submit_anchor: int, limit_price: float) -> tuple[Any, ...]:
-    base: list[Any] = [str(context["prediction_side"])]
-    if "time30" in level:
+def _level_key(context: dict[str, Any], level: str, limit_price: float) -> tuple[Any, ...]:
+    base: list[Any] = []
+    if level in {"level_0", "level_2"}:
         base.append(int(context["decision_time_bucket_start"]))
-    if "time60" in level:
+    if level in {"level_1", "level_3"}:
         base.append((int(context["decision_time_bucket_start"]) // 60) * 60)
-    if "price005" in level:
+    if level in {"level_0", "level_1"}:
         base.append(float(context["current_price_bucket_start"]))
-    if "price010" in level:
+    if level in {"level_2", "level_3", "level_4"}:
         base.append(_price_bucket_start(float(context["current_price_bucket_start"]), 0.10))
-    base.extend([int(submit_anchor), float(limit_price)])
+    base.append(float(limit_price))
     return tuple(base)
 
 
 def _smooth_monotonicity(df: pd.DataFrame) -> pd.DataFrame:
-    df = df.sort_values(["prediction_side", "decision_time_bucket_start", "current_price_bucket_start", "submit_second_anchor", "limit_price_anchor"]).copy()
-    group_cols = ["prediction_side", "decision_time_bucket_start", "current_price_bucket_start", "submit_second_anchor"]
+    df = df.sort_values(["decision_time_bucket_start", "current_price_bucket_start", "limit_price_anchor"]).copy()
     df["a_win_market_fill_raw"] = df["a_win_market_fill"]
     df["a_lose_market_fill_raw"] = df["a_lose_market_fill"]
-    df["a_win_market_fill"] = df.groupby(group_cols, group_keys=False)["a_win_market_fill"].cummax()
-    df["a_lose_market_fill"] = df.groupby(group_cols, group_keys=False)["a_lose_market_fill"].cummax()
-    time_group_cols = ["prediction_side", "decision_time_bucket_start", "current_price_bucket_start", "limit_price_anchor"]
-    df = df.sort_values(time_group_cols + ["submit_second_anchor"], ascending=[True, True, True, True, False])
-    df["a_win_market_fill"] = df.groupby(time_group_cols, group_keys=False)["a_win_market_fill"].cummax()
-    df["a_lose_market_fill"] = df.groupby(time_group_cols, group_keys=False)["a_lose_market_fill"].cummax()
-    return df.sort_values(["prediction_side", "decision_time_bucket_start", "current_price_bucket_start", "submit_second_anchor", "limit_price_anchor"]).reset_index(drop=True)
+    for idx, row in df.iterrows():
+        kelly = _kelly_metrics(float(row["q_market_LCB"]), float(row["a_win_LCB"]), float(row["limit_price_anchor"]))
+        df.at[idx, "q_used_default"] = float(row["q_market_LCB"])
+        df.at[idx, "kelly_a_win_used"] = float(row["a_win_LCB"])
+        df.at[idx, "q_required"] = kelly["q_required"]
+        df.at[idx, "q_margin"] = kelly["q_margin"]
+        df.at[idx, "R_payoff"] = kelly["R_payoff"]
+        df.at[idx, "edge_market_q"] = kelly["edge"]
+        df.at[idx, "f_kelly_raw"] = kelly["f_kelly_raw"]
+        df.at[idx, "f_kelly"] = kelly["f_kelly"]
+        df.at[idx, "kelly_growth"] = kelly["kelly_growth"]
+        df.at[idx, "is_positive_ev"] = bool(kelly["edge"] > 0)
+    return df.sort_values(["decision_time_bucket_start", "current_price_bucket_start", "limit_price_anchor"]).reset_index(drop=True)
 
 
-def _write_sidecars(df: pd.DataFrame, out_path: Path, trades_csv: Path, created_at: str, min_win_market_count: int, markets: pd.DataFrame) -> None:
+def _wilson_lower_bound(successes: int, total: int, z: float = 1.96) -> float:
+    if total <= 0:
+        return 0.0
+    p_hat = successes / total
+    z2 = z * z
+    denom = 1.0 + z2 / total
+    centre = p_hat + z2 / (2.0 * total)
+    radius = z * math.sqrt((p_hat * (1.0 - p_hat) + z2 / (4.0 * total)) / total)
+    return float(max(0.0, (centre - radius) / denom))
+
+
+def _kelly_metrics(q: float, a_win: float, price: float) -> dict[str, float]:
+    if price <= 0 or price >= 1:
+        return {
+            "R_payoff": float("inf"),
+            "edge": float("-inf"),
+            "q_required": float("inf"),
+            "q_margin": float("-inf"),
+            "f_kelly_raw": float("-inf"),
+            "f_kelly": 0.0,
+            "kelly_growth": 0.0,
+        }
+    r_payoff = (1.0 - price) / price
+    edge = q * a_win * r_payoff - (1.0 - q)
+    q_required = price / (price + a_win * (1.0 - price)) if (price + a_win * (1.0 - price)) > 0 else float("inf")
+    denom = r_payoff * (q * a_win + 1.0 - q)
+    f_raw = edge / denom if denom > 0 else float("-inf")
+    f = max(0.0, f_raw)
+    growth = q * a_win * math.log1p(f * r_payoff) + (1.0 - q) * math.log1p(-f) if 0.0 <= f < 1.0 else float("-inf")
+    return {
+        "R_payoff": float(r_payoff),
+        "edge": float(edge),
+        "q_required": float(q_required),
+        "q_margin": float(q - q_required),
+        "f_kelly_raw": float(f_raw),
+        "f_kelly": float(f),
+        "kelly_growth": float(growth),
+    }
+
+
+def _write_sidecars(df: pd.DataFrame, out_path: Path, trades_csv: Path, created_at: str, min_market_count: int, markets: pd.DataFrame, b_assumption: float) -> None:
     summary = (
-        df.groupby(["prediction_side", "fallback_level", "is_reliable"], dropna=False)
-        .agg(row_count=("prediction_side", "size"), avg_a_win=("a_win_market_fill", "mean"), avg_sample_markets=("sample_market_count", "mean"))
+        df.groupby(["fallback_level", "is_reliable", "is_positive_ev"], dropna=False)
+        .agg(row_count=("fallback_level", "size"), avg_a_win=("a_win_market_fill", "mean"), avg_f_kelly=("f_kelly", "mean"), avg_sample_markets=("sample_market_count", "mean"))
         .reset_index()
     )
     summary.to_csv(out_path.with_name(out_path.stem + "_summary.csv"), index=False)
@@ -269,10 +334,13 @@ def _write_sidecars(df: pd.DataFrame, out_path: Path, trades_csv: Path, created_
         "source_trades_csv": str(trades_csv),
         "decision_time_step_seconds": 30,
         "current_price_bucket_size": 0.05,
-        "submit_second_step_seconds": 30,
         "limit_price_step": 0.05,
-        "min_win_market_count": min_win_market_count,
-        "fill_proxy": "taker_sell_price_lte_limit_price_after_submit_second",
+        "min_market_count": min_market_count,
+        "q_default": "q_market_LCB",
+        "a_win_default": "a_win_LCB",
+        "wilson_z": 1.96,
+        "a_lose_assumption": b_assumption,
+        "fill_proxy": "taker_sell_price_lte_limit_price_after_decision_second",
         "lose_fill_assumption_for_runtime": 1.0,
         "order_valid_until": "market_end",
         "created_at_utc": created_at,

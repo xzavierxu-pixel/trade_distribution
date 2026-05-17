@@ -44,19 +44,12 @@ if [ "$resolved_target" != "$EXPECTED" ]; then
 fi
 
 if [ "${DRY_RUN:-0}" = "1" ]; then
-  echo "Dry run: path checks passed; no service stop, backup, clear, or extract performed."
+  echo "Dry run: path checks passed; no service stop, clear, or extract performed."
   exit 0
 fi
 
 sudo systemctl stop fortune-bot.timer 2>/dev/null || systemctl --user stop fortune-bot.timer 2>/dev/null || true
 sudo systemctl stop fortune-bot.service 2>/dev/null || systemctl --user stop fortune-bot.service 2>/dev/null || true
-
-ts="$(date -u +%Y%m%dT%H%M%SZ)"
-mkdir -p "$HOME/fortune_bot_backups"
-if [ -d "$TARGET" ]; then
-  tar -czf "$HOME/fortune_bot_backups/fortune_bot_$ts.tar.gz" -C "$HOME" fortune_bot
-  echo "backup=$HOME/fortune_bot_backups/fortune_bot_$ts.tar.gz"
-fi
 
 mkdir -p "$TARGET"
 find "$TARGET" -mindepth 1 -maxdepth 1 -exec rm -rf {} +

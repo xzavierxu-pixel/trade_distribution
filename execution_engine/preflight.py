@@ -18,10 +18,14 @@ def run_preflight(config_path: Path, mode: str = "paper") -> dict[str, Any]:
         "config_exists": config_path.exists(),
         "manifest_exists": manifest_path.exists(),
         "mode_valid": mode in {"paper", "live"},
+        "planner_valid": cfg.orders.planner in {"best_bid_ladder", "maker_kelly"},
+        "kelly_fallback_disabled_by_default": not cfg.orders.kelly_fallback_enabled,
         "maker_only": bool(cfg.orders.maker_only),
-        "budget_total_lte_7": cfg.orders.max_total_budget_usdc <= 7.0,
+        "budget_total_lte_10": cfg.orders.max_total_budget_usdc <= 10.0,
         "budget_order_lte_4": cfg.orders.max_order_budget_usdc <= 4.0,
         "min_shares_gte_5": cfg.orders.min_shares >= 5.0,
+        "fractional_kelly_lte_0_25": cfg.orders.fractional_kelly <= 0.25,
+        "min_market_count_gte_20": cfg.orders.min_market_count >= 20,
         "features_source_valid": cfg.features.source in {"validation_snapshot", "latest_feature_file", "trades_csv_snapshot", "polymarket_live"},
     }
     if cfg.features.source in {"latest_feature_file", "trades_csv_snapshot"}:
@@ -47,7 +51,7 @@ def run_preflight(config_path: Path, mode: str = "paper") -> dict[str, Any]:
         checks["orders_enabled_for_live"] = bool(cfg.orders.enabled)
         checks["manifest_allows_live"] = bool(manifest.get("live_eligible"))
         checks["credentials_present_for_live"] = all(credential_presence.values())
-        checks["signature_type_poly_1271"] = cfg.polymarket.signature_type == 3
+        checks["signature_type_1"] = cfg.polymarket.signature_type == 1
         checks["deposit_wallet_env_used"] = cfg.polymarket.funder_env == "DEPOSIT_WALLET_ADDRESS"
         funder = os.getenv(cfg.polymarket.funder_env, "")
         checks["deposit_wallet_format_valid"] = bool(re.fullmatch(r"0x[a-fA-F0-9]{40}", funder))

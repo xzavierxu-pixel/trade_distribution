@@ -29,9 +29,9 @@ def load_feature_row(cfg: EngineConfig, manifest: dict[str, Any], feature_column
 
 
 def _load_validation_snapshot(cfg: EngineConfig, manifest: dict[str, Any]) -> tuple[pd.Series, dict[str, Any]]:
-    features_path = cfg.baseline.artifact_dir / "features_validation.parquet"
+    features_path = cfg.baseline.artifact_dir / "features/features_validation.parquet"
     if not features_path.exists():
-        features_path = Path("models") / manifest["model_version"] / "features_validation.parquet"
+        features_path = Path("models") / manifest["model_version"] / "features" / "features_validation.parquet"
     features = pd.read_parquet(features_path)
     row = features.sort_values("market_start_ts").tail(1).iloc[0]
     return row, {

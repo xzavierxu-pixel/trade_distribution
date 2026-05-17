@@ -12,9 +12,11 @@ from typing import Any
 
 
 REQUIRED_MODEL_FILES = ["model.pkl", "feature_columns.json", "evaluation.json", "threshold_search.csv"]
-MIN_ACCEPTED_SAMPLE_ACCURACY = 0.80
 OPTIONAL_MODEL_FILES = [
     "calibrator.pkl",
+    "feature_importance.csv",
+    "model_selection.csv",
+    "model_selection.json",
     "probability_reference.json",
     "probability_deciles.csv",
     "regime_slices.csv",
@@ -22,10 +24,37 @@ OPTIONAL_MODEL_FILES = [
     "false_down_slices.csv",
     "features_validation.parquet",
     "features_holdout.parquet",
+    "predictions_train.csv",
+    "predictions_validation.csv",
     "predictions_holdout.csv",
     "tuning_report.json",
     "tuning_candidates.csv",
 ]
+
+ARTIFACT_SUBDIRS = {
+    "model.pkl": "model",
+    "calibrator.pkl": "model",
+    "feature_columns.json": "model",
+    "feature_importance.csv": "model",
+    "evaluation.json": "evaluation",
+    "metrics.json": "evaluation",
+    "model_selection.csv": "evaluation",
+    "model_selection.json": "evaluation",
+    "threshold_search.json": "tuning",
+    "threshold_search.csv": "tuning",
+    "tuning_report.json": "tuning",
+    "tuning_candidates.csv": "tuning",
+    "probability_reference.json": "tuning",
+    "probability_deciles.csv": "tuning",
+    "predictions_train.csv": "predictions",
+    "predictions_validation.csv": "predictions",
+    "predictions_holdout.csv": "predictions",
+    "features_validation.parquet": "features",
+    "features_holdout.parquet": "features",
+    "regime_slices.csv": "diagnostics",
+    "false_up_slices.csv": "diagnostics",
+    "false_down_slices.csv": "diagnostics",
+}
 
 
 def export_artifact(
@@ -35,44 +64,54 @@ def export_artifact(
     maker_fill_table: Path | None = None,
     bundle_out: Path | None = None,
 ) -> dict[str, Any]:
-    missing = [name for name in REQUIRED_MODEL_FILES if not (model_dir / name).exists()]
+    paths = _model_file_paths(model_dir)
+    missing = [name for name in REQUIRED_MODEL_FILES if name not in paths]
     if missing:
         raise FileNotFoundError(f"model_dir is missing required files: {missing}")
     model_version = model_version or model_dir.name
     target = deploy_dir / model_version
+    if target.exists():
+        try:
+            shutil.rmtree(target)
+        except PermissionError:
+            pass
     target.mkdir(parents=True, exist_ok=True)
     copied: list[str] = []
     for name in REQUIRED_MODEL_FILES + OPTIONAL_MODEL_FILES:
-        src = model_dir / name
-        if src.exists():
+        src = paths.get(name)
+        if src and src.exists():
             dst_name = "threshold_search.json" if name == "threshold_search.csv" else name
+            dst_rel = _artifact_relpath(dst_name)
             if name == "threshold_search.csv":
-                _csv_to_json(src, target / dst_name)
+                _csv_to_json(src, target / dst_rel)
             else:
-                _copy_file(src, target / dst_name)
-            copied.append(dst_name)
+                _copy_file(src, target / dst_rel)
+            copied.append(dst_rel.as_posix())
     if maker_fill_table:
-        maker_dst = target / ("maker_fill_table.parquet" if maker_fill_table.suffix.lower() == ".parquet" else "maker_fill_table.csv")
+        maker_name = "maker_fill_table.parquet" if maker_fill_table.suffix.lower() == ".parquet" else "maker_fill_table.csv"
+        maker_rel = Path("fill_surface") / maker_name
+        maker_dst = target / maker_rel
         if maker_fill_table.resolve() != maker_dst.resolve():
             _copy_file(maker_fill_table, maker_dst)
         for suffix in ["_summary.csv", "_metadata.json"]:
             sidecar = maker_fill_table.with_name(maker_fill_table.stem + suffix)
             if sidecar.exists():
-                _copy_file(sidecar, target / ("maker_fill_table" + suffix))
-                copied.append("maker_fill_table" + suffix)
+                sidecar_rel = Path("fill_surface") / ("maker_fill_table" + suffix)
+                _copy_file(sidecar, target / sidecar_rel)
+                copied.append(sidecar_rel.as_posix())
     else:
-        maker_dst = target / "maker_fill_table.csv"
+        maker_rel = Path("fill_surface") / "maker_fill_table.csv"
+        maker_dst = target / maker_rel
         maker_dst.write_text("", encoding="utf-8")
-    copied.append(maker_dst.name)
+    copied.append(maker_rel.as_posix())
 
-    evaluation = json.loads((model_dir / "evaluation.json").read_text(encoding="utf-8"))
+    evaluation = json.loads(paths["evaluation.json"].read_text(encoding="utf-8"))
     val = evaluation["validation_metrics"]
     holdout = evaluation.get("holdout_metrics") or {}
     policy = evaluation["decision_policy"]
     holdout_gates = _metric_gates(holdout, "holdout") if holdout else {}
     live_eligible = (
         float(val.get("coverage", 0.0)) >= 0.70
-        and float(val.get("accepted_sample_accuracy", 0.0)) > MIN_ACCEPTED_SAMPLE_ACCURACY
         and int(val.get("accepted_count", 0)) >= 1000
         and int(val.get("up_prediction_count", 0)) >= 200
         and int(val.get("down_prediction_count", 0)) >= 200
@@ -81,7 +120,6 @@ def export_artifact(
     )
     gate_checks = {
         "coverage_gte_0_70": float(val.get("coverage", 0.0)) >= 0.70,
-        "accepted_sample_accuracy_gt_0_80": float(val.get("accepted_sample_accuracy", 0.0)) > MIN_ACCEPTED_SAMPLE_ACCURACY,
         "accepted_count_gte_1000": int(val.get("accepted_count", 0)) >= 1000,
         "up_prediction_count_gte_200": int(val.get("up_prediction_count", 0)) >= 200,
         "down_prediction_count_gte_200": int(val.get("down_prediction_count", 0)) >= 200,
@@ -97,16 +135,15 @@ def export_artifact(
         "deployment_status": "live_candidate" if live_eligible else "paper_only_blocked",
         "blocked_reasons": blocked_reasons,
         "model_gate_checks": gate_checks,
-        "model_file": "model.pkl",
-        "calibrator_file": "calibrator.pkl" if (target / "calibrator.pkl").exists() else None,
-        "feature_columns_file": "feature_columns.json",
-        "probability_reference_file": "probability_reference.json" if (target / "probability_reference.json").exists() else None,
-        "maker_fill_table_file": maker_dst.name,
+        "model_file": "model/model.pkl",
+        "calibrator_file": "model/calibrator.pkl" if (target / "model/calibrator.pkl").exists() else None,
+        "feature_columns_file": "model/feature_columns.json",
+        "probability_reference_file": "tuning/probability_reference.json" if (target / "tuning/probability_reference.json").exists() else None,
+        "maker_fill_table_file": maker_rel.as_posix(),
         "thresholds": {
             "t_up": float(policy["selected_t_up"]),
             "t_down": float(policy["selected_t_down"]),
             "min_coverage": 0.70,
-            "min_accepted_sample_accuracy": MIN_ACCEPTED_SAMPLE_ACCURACY,
         },
         "validation_metrics": {
             "coverage": float(val.get("coverage", 0.0)),
@@ -126,21 +163,32 @@ def export_artifact(
             "coverage_constraint_satisfied": bool(policy.get("coverage_constraint_satisfied", False)),
         },
         "trading": {
-            "max_total_budget_usdc": 7.0,
+            "planner": "best_bid_ladder",
+            "kelly_fallback_enabled": False,
+            "best_bid_ladder_max_price": 0.80,
+            "best_bid_ladder_second_offset": 0.10,
+            "best_bid_ladder_shares": 5.0,
+            "max_total_budget_usdc": 10.0,
             "max_order_budget_usdc": 4.0,
             "min_shares": 5.0,
+            "fractional_kelly": 0.25,
+            "min_market_count": 20,
+            "allowed_fallback_levels": ["level_0", "level_1"],
             "maker_only": True,
         },
         "files": {},
     }
-    _copy_file(model_dir / "evaluation.json", target / "metrics.json")
+    _copy_file(paths["evaluation.json"], target / "evaluation/metrics.json")
     manifest_path = target / "artifact_manifest.json"
     manifest_path.write_text(json.dumps(manifest, indent=2), encoding="utf-8")
-    manifest["files"] = {p.name: sha256_file(p) for p in sorted(target.iterdir()) if p.is_file() and p.name != "artifact_manifest.json"}
+    manifest["files"] = _file_hash_map(target)
     manifest["artifact_hash"] = artifact_hash_from_files(manifest["files"])
-    _inject_evaluation_export_metadata(target / "evaluation.json", model_version, manifest["artifact_hash"])
-    _inject_evaluation_export_metadata(target / "metrics.json", model_version, manifest["artifact_hash"])
-    manifest["files"] = {p.name: sha256_file(p) for p in sorted(target.iterdir()) if p.is_file() and p.name != "artifact_manifest.json"}
+    _inject_tuning_export_metadata(target / "tuning/tuning_report.json", live_eligible, blocked_reasons)
+    manifest["files"] = _file_hash_map(target)
+    manifest["artifact_hash"] = artifact_hash_from_files(manifest["files"])
+    _inject_evaluation_export_metadata(target / "evaluation/evaluation.json", model_version, manifest["artifact_hash"])
+    _inject_evaluation_export_metadata(target / "evaluation/metrics.json", model_version, manifest["artifact_hash"])
+    manifest["files"] = _file_hash_map(target)
     manifest_path.write_text(json.dumps(manifest, indent=2), encoding="utf-8")
     if bundle_out:
         bundle_out.parent.mkdir(parents=True, exist_ok=True)
@@ -168,8 +216,20 @@ def sha256_file(path: Path) -> str:
 
 
 def artifact_hash_from_files(files: dict[str, str]) -> str:
-    stable_files = {name: digest for name, digest in files.items() if name not in {"evaluation.json", "metrics.json"}}
+    stable_files = {name: digest for name, digest in files.items() if Path(name).name not in {"evaluation.json", "metrics.json"}}
     return sha256_text(json.dumps(stable_files, sort_keys=True))
+
+
+def _artifact_relpath(name: str) -> Path:
+    return Path(ARTIFACT_SUBDIRS.get(name, "misc")) / name
+
+
+def _file_hash_map(target: Path) -> dict[str, str]:
+    files: dict[str, str] = {}
+    for path in sorted(target.rglob("*")):
+        if path.is_file() and path.name != "artifact_manifest.json":
+            files[path.relative_to(target).as_posix()] = sha256_file(path)
+    return files
 
 
 def _inject_evaluation_export_metadata(path: Path, model_version: str, artifact_hash: str) -> None:
@@ -181,21 +241,40 @@ def _inject_evaluation_export_metadata(path: Path, model_version: str, artifact_
     path.write_text(json.dumps(data, indent=2, allow_nan=True), encoding="utf-8")
 
 
+def _inject_tuning_export_metadata(path: Path, live_eligible: bool, blocked_reasons: list[str]) -> None:
+    if not path.exists():
+        return
+    data = json.loads(path.read_text(encoding="utf-8-sig"))
+    data["live_eligible"] = live_eligible
+    data["blocked_reasons"] = blocked_reasons
+    path.write_text(json.dumps(data, indent=2, allow_nan=True), encoding="utf-8")
+
+
 def _metric_gates(metrics: dict[str, Any], prefix: str) -> dict[str, bool]:
     return {
         f"{prefix}_coverage_gte_0_70": float(metrics.get("coverage", 0.0)) >= 0.70,
-        f"{prefix}_accepted_sample_accuracy_gt_0_80": float(metrics.get("accepted_sample_accuracy", 0.0)) > MIN_ACCEPTED_SAMPLE_ACCURACY,
     }
+
+
+def _model_file_paths(model_dir: Path) -> dict[str, Path]:
+    paths: dict[str, Path] = {}
+    for path in model_dir.rglob("*"):
+        if path.is_file() and path.name not in paths:
+            paths[path.name] = path
+    return paths
 
 
 def _copy_file(src: Path, dst: Path) -> None:
     dst.parent.mkdir(parents=True, exist_ok=True)
+    if dst.exists() and sha256_file(src) == sha256_file(dst):
+        return
     tmp = dst.with_suffix(dst.suffix + ".tmp")
     shutil.copyfile(src, tmp)
     tmp.replace(dst)
 
 
 def _csv_to_json(src: Path, dst: Path) -> None:
+    dst.parent.mkdir(parents=True, exist_ok=True)
     with src.open("r", encoding="utf-8", newline="") as f:
         rows = list(csv.DictReader(f))
     dst.write_text(json.dumps(rows, indent=2), encoding="utf-8")

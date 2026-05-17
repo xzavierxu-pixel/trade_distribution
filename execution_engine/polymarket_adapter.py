@@ -48,6 +48,44 @@ def submit_limit_buy_orders(config: PolymarketConfig, orders: list[PolymarketOrd
     return responses
 
 
+def get_best_bid(config: PolymarketConfig, token_id: str) -> float | None:
+    if not token_id:
+        return None
+    try:
+        from py_clob_client.client import ClobClient
+    except Exception as exc:  # pragma: no cover - depends on deployment env
+        raise RuntimeError("py-clob-client is required for live order book lookup") from exc
+    client = ClobClient(config.host, chain_id=config.chain_id)
+    book = client.get_order_book(token_id)
+    bids = _extract_book_side(book, "bids")
+    prices = []
+    for bid in bids:
+        price = _extract_price(bid)
+        if price is not None:
+            prices.append(price)
+    return max(prices) if prices else None
+
+
+def _extract_book_side(book: Any, side: str) -> list[Any]:
+    if isinstance(book, dict):
+        value = book.get(side) or book.get(side.capitalize())
+    else:
+        value = getattr(book, side, None) or getattr(book, side.capitalize(), None)
+    return list(value or [])
+
+
+def _extract_price(level: Any) -> float | None:
+    value = None
+    if isinstance(level, dict):
+        value = level.get("price")
+    else:
+        value = getattr(level, "price", None)
+    try:
+        return float(value)
+    except (TypeError, ValueError):
+        return None
+
+
 def _required_env(name: str) -> str:
     value = os.getenv(name)
     if not value:
@@ -59,4 +97,3 @@ def _safe_response(response: Any) -> Any:
     if isinstance(response, dict):
         return {k: v for k, v in response.items() if "secret" not in str(k).lower() and "key" not in str(k).lower()}
     return str(response)
-

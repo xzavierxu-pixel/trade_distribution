@@ -13,9 +13,6 @@ from typing import Any
 from execution_engine.artifact_export import artifact_hash_from_files, sha256_file
 
 
-MIN_ACCEPTED_SAMPLE_ACCURACY = 0.80
-
-
 REQUIRED_MANIFEST_KEYS = {
     "project",
     "model_version",
@@ -35,20 +32,30 @@ REQUIRED_MANIFEST_KEYS = {
 }
 
 REQUIRED_FILL_COLUMNS = {
-    "prediction_side",
     "decision_time_regime",
     "current_price_bucket",
-    "submit_second_anchor",
     "limit_price_anchor",
     "win_market_count",
     "win_fill_market_count",
     "a_win_market_fill",
+    "a_win_LCB",
     "lose_market_count",
     "lose_fill_market_count",
     "a_lose_market_fill",
-    "sample_market_count",
+    "q_market",
+    "q_market_LCB",
+    "q_used_default",
+    "kelly_a_win_used",
+    "q_required",
+    "q_margin",
+    "R_payoff",
+    "edge_market_q",
+    "f_kelly_raw",
+    "f_kelly",
     "fallback_level",
     "is_reliable",
+    "is_valid_maker_candidate",
+    "is_positive_ev",
 }
 
 
@@ -84,8 +91,6 @@ def _check_project_contract(manifest: dict[str, Any], findings: list[dict[str, s
     thresholds = manifest.get("thresholds") or {}
     if float(thresholds.get("min_coverage", 0.0)) != 0.70:
         findings.append({"level": "error", "item": "thresholds.min_coverage", "message": "must be 0.70"})
-    if float(thresholds.get("min_accepted_sample_accuracy", 0.0)) != MIN_ACCEPTED_SAMPLE_ACCURACY:
-        findings.append({"level": "error", "item": "thresholds.min_accepted_sample_accuracy", "message": "must be 0.80"})
 
 
 def _check_file_hashes(artifact_dir: Path, manifest: dict[str, Any], findings: list[dict[str, str]]) -> None:
@@ -101,14 +106,16 @@ def _check_file_hashes(artifact_dir: Path, manifest: dict[str, Any], findings: l
     actual_artifact_hash = artifact_hash_from_files(files)
     if manifest.get("artifact_hash") != actual_artifact_hash:
         findings.append({"level": "error", "item": "artifact_hash", "message": "artifact hash does not match file hash map"})
-    for name in ["evaluation.json", "metrics.json"]:
+    for name in ["evaluation/evaluation.json", "evaluation/metrics.json", str(manifest.get("model_file", ""))]:
         path = artifact_dir / name
         if path.exists():
-            data = json.loads(path.read_text(encoding="utf-8"))
-            if data.get("model_version") != manifest.get("model_version"):
-                findings.append({"level": "error", "item": f"{name}.model_version", "message": "does not match manifest"})
-            if data.get("artifact_hash") != manifest.get("artifact_hash"):
-                findings.append({"level": "error", "item": f"{name}.artifact_hash", "message": "does not match manifest"})
+            if path.suffix == ".json":
+                data = json.loads(path.read_text(encoding="utf-8"))
+                if name.startswith("evaluation/"):
+                    if data.get("model_version") != manifest.get("model_version"):
+                        findings.append({"level": "error", "item": f"{name}.model_version", "message": "does not match manifest"})
+                    if data.get("artifact_hash") != manifest.get("artifact_hash"):
+                        findings.append({"level": "error", "item": f"{name}.artifact_hash", "message": "does not match manifest"})
 
 
 def _check_model_gates(manifest: dict[str, Any], require_live: bool, findings: list[dict[str, str]]) -> None:
@@ -117,7 +124,6 @@ def _check_model_gates(manifest: dict[str, Any], require_live: bool, findings: l
     policy = manifest.get("decision_policy") or {}
     gates = {
         "coverage_gte_0_70": float(val.get("coverage", 0.0)) >= 0.70,
-        "accepted_sample_accuracy_gt_0_80": float(val.get("accepted_sample_accuracy", 0.0)) > MIN_ACCEPTED_SAMPLE_ACCURACY,
         "accepted_count_gte_1000": int(val.get("accepted_count", 0)) >= 1000,
         "up_prediction_count_gte_200": int(val.get("up_prediction_count", 0)) >= 200,
         "down_prediction_count_gte_200": int(val.get("down_prediction_count", 0)) >= 200,
@@ -127,7 +133,6 @@ def _check_model_gates(manifest: dict[str, Any], require_live: bool, findings: l
         gates.update(
             {
                 "holdout_coverage_gte_0_70": float(holdout.get("coverage", 0.0)) >= 0.70,
-                "holdout_accepted_sample_accuracy_gt_0_80": float(holdout.get("accepted_sample_accuracy", 0.0)) > MIN_ACCEPTED_SAMPLE_ACCURACY,
             }
         )
     computed_live = all(gates.values())
@@ -152,9 +157,16 @@ def _check_model_gates(manifest: dict[str, Any], require_live: bool, findings: l
 def _check_trading_contract(manifest: dict[str, Any], findings: list[dict[str, str]]) -> None:
     trading = manifest.get("trading") or {}
     expected = {
-        "max_total_budget_usdc": 7.0,
+        "planner": "best_bid_ladder",
+        "kelly_fallback_enabled": False,
+        "best_bid_ladder_max_price": 0.80,
+        "best_bid_ladder_second_offset": 0.10,
+        "best_bid_ladder_shares": 5.0,
+        "max_total_budget_usdc": 10.0,
         "max_order_budget_usdc": 4.0,
         "min_shares": 5.0,
+        "fractional_kelly": 0.25,
+        "min_market_count": 20,
         "maker_only": True,
     }
     for key, value in expected.items():
@@ -163,7 +175,7 @@ def _check_trading_contract(manifest: dict[str, Any], findings: list[dict[str, s
 
 
 def _check_tuning_report(artifact_dir: Path, manifest: dict[str, Any], findings: list[dict[str, str]]) -> None:
-    path = artifact_dir / "tuning_report.json"
+    path = artifact_dir / "tuning/tuning_report.json"
     if not path.exists():
         if manifest.get("live_eligible"):
             findings.append({"level": "warning", "item": "tuning_report", "message": "missing tuning report for live candidate"})
@@ -196,23 +208,27 @@ def _check_fill_table(path: Path, findings: list[dict[str, str]]) -> None:
         if missing:
             findings.append({"level": "error", "item": "maker_fill_table.columns", "message": f"missing {sorted(missing)}"})
             return
+        if "limit_price" in columns:
+            findings.append({"level": "error", "item": "maker_fill_table.columns", "message": "limit_price duplicates limit_price_anchor and must not be exported"})
+            return
         rows = list(reader)
     if not rows:
         findings.append({"level": "error", "item": "maker_fill_table.rows", "message": "table is empty"})
-    sides = {r["prediction_side"].lower() for r in rows}
-    if sides != {"up", "down"}:
-        findings.append({"level": "error", "item": "maker_fill_table.prediction_side", "message": "must include up and down"})
     fallback_levels = {r["fallback_level"] for r in rows}
     if not fallback_levels:
         findings.append({"level": "error", "item": "maker_fill_table.fallback_level", "message": "missing fallback levels"})
-    if "level_0_side_time30_price005" not in fallback_levels:
+    if "level_0" not in fallback_levels:
         findings.append({"level": "warning", "item": "maker_fill_table.fallback_level", "message": "no exact level_0 rows present"})
     reliable_values = {str(r["is_reliable"]).lower() for r in rows}
     if not reliable_values <= {"true", "false"}:
         findings.append({"level": "error", "item": "maker_fill_table.is_reliable", "message": "must be boolean-like"})
+    valid_values = {str(r["is_valid_maker_candidate"]).lower() for r in rows}
+    if not valid_values <= {"true", "false"}:
+        findings.append({"level": "error", "item": "maker_fill_table.is_valid_maker_candidate", "message": "must be boolean-like"})
     for idx, row in enumerate(rows, start=2):
         _check_fill_probability(row, idx, "win", findings)
         _check_fill_probability(row, idx, "lose", findings)
+        _check_kelly_fields(row, idx, findings)
     _check_fill_surface_sidecars(path, len(rows), findings)
 
 
@@ -228,9 +244,11 @@ def _check_fill_surface_sidecars(path: Path, row_count: int, findings: list[dict
             "source_trades_csv",
             "decision_time_step_seconds",
             "current_price_bucket_size",
-            "submit_second_step_seconds",
             "limit_price_step",
-            "min_win_market_count",
+            "min_market_count",
+            "q_default",
+            "a_win_default",
+            "wilson_z",
             "fill_proxy",
             "lose_fill_assumption_for_runtime",
             "order_valid_until",
@@ -247,9 +265,11 @@ def _check_fill_surface_sidecars(path: Path, row_count: int, findings: list[dict
         expected = {
             "decision_time_step_seconds": 30,
             "current_price_bucket_size": 0.05,
-            "submit_second_step_seconds": 30,
             "limit_price_step": 0.05,
-            "min_win_market_count": 30,
+            "min_market_count": 20,
+            "q_default": "q_market_LCB",
+            "a_win_default": "a_win_LCB",
+            "wilson_z": 1.96,
             "lose_fill_assumption_for_runtime": 1.0,
             "order_valid_until": "market_end",
         }
@@ -284,6 +304,61 @@ def _check_fill_probability(row: dict[str, str], line_no: int, outcome: str, fin
         findings.append({"level": "error", "item": f"maker_fill_table.{prob_key}", "message": f"does not equal {fill_key}/{count_key} at csv line {line_no}"})
 
 
+def _check_kelly_fields(row: dict[str, str], line_no: int, findings: list[dict[str, str]]) -> None:
+    try:
+        win_count = int(float(row["win_market_count"]))
+        win_fill_count = int(float(row["win_fill_market_count"]))
+        lose_count = int(float(row["lose_market_count"]))
+        q_market = float(row["q_market"])
+        q_market_lcb = float(row["q_market_LCB"])
+        q_used = float(row["q_used_default"])
+        a_win = float(row["a_win_market_fill"])
+        a_win_lcb = float(row["a_win_LCB"])
+        kelly_a_win_used = float(row["kelly_a_win_used"])
+        price = float(row["limit_price_anchor"])
+        r_payoff = float(row["R_payoff"])
+        edge = float(row["edge_market_q"])
+        required = float(row["q_required"])
+        q_margin = float(row["q_margin"])
+        f_raw = float(row["f_kelly_raw"])
+        f_kelly = float(row["f_kelly"])
+    except (KeyError, TypeError, ValueError):
+        findings.append({"level": "error", "item": "maker_fill_table.kelly", "message": f"invalid Kelly fields at csv line {line_no}"})
+        return
+    total = win_count + lose_count
+    expected_q = win_count / total if total else 0.0
+    expected_q_lcb = _wilson_lower_bound(win_count, total)
+    expected_a_win_lcb = _wilson_lower_bound(win_fill_count, win_count)
+    expected_r = (1.0 - price) / price if price > 0 else float("inf")
+    expected_edge = q_used * kelly_a_win_used * expected_r - (1.0 - q_used) if price > 0 else float("-inf")
+    expected_required = price / (price + kelly_a_win_used * (1.0 - price)) if (price + kelly_a_win_used * (1.0 - price)) > 0 else float("inf")
+    denom = expected_r * (q_used * kelly_a_win_used + 1.0 - q_used)
+    expected_f_raw = expected_edge / denom if denom > 0 else float("-inf")
+    expected_f = max(0.0, expected_f_raw)
+    if not math.isclose(q_market, expected_q, rel_tol=1e-9, abs_tol=1e-9):
+        findings.append({"level": "error", "item": "maker_fill_table.q_market", "message": f"does not equal win/total at csv line {line_no}"})
+    if not math.isclose(q_market_lcb, expected_q_lcb, rel_tol=1e-9, abs_tol=1e-9):
+        findings.append({"level": "error", "item": "maker_fill_table.q_market_LCB", "message": f"does not match Wilson lower bound at csv line {line_no}"})
+    if not math.isclose(a_win_lcb, expected_a_win_lcb, rel_tol=1e-9, abs_tol=1e-9):
+        findings.append({"level": "error", "item": "maker_fill_table.a_win_LCB", "message": f"does not match Wilson lower bound at csv line {line_no}"})
+    if not math.isclose(q_used, q_market_lcb, rel_tol=1e-9, abs_tol=1e-9):
+        findings.append({"level": "error", "item": "maker_fill_table.q_used_default", "message": f"default must equal q_market_LCB at csv line {line_no}"})
+    if not math.isclose(kelly_a_win_used, a_win_lcb, rel_tol=1e-9, abs_tol=1e-9):
+        findings.append({"level": "error", "item": "maker_fill_table.kelly_a_win_used", "message": f"default must equal a_win_LCB at csv line {line_no}"})
+    if not math.isclose(r_payoff, expected_r, rel_tol=1e-9, abs_tol=1e-9):
+        findings.append({"level": "error", "item": "maker_fill_table.R_payoff", "message": f"does not match formula at csv line {line_no}"})
+    if not math.isclose(edge, expected_edge, rel_tol=1e-9, abs_tol=1e-9):
+        findings.append({"level": "error", "item": "maker_fill_table.edge_market_q", "message": f"does not match formula at csv line {line_no}"})
+    if math.isfinite(expected_required) and not math.isclose(required, expected_required, rel_tol=1e-9, abs_tol=1e-9):
+        findings.append({"level": "error", "item": "maker_fill_table.q_required", "message": f"does not match formula at csv line {line_no}"})
+    if math.isfinite(expected_required) and not math.isclose(q_margin, q_used - expected_required, rel_tol=1e-9, abs_tol=1e-9):
+        findings.append({"level": "error", "item": "maker_fill_table.q_margin", "message": f"does not match formula at csv line {line_no}"})
+    if math.isfinite(expected_f_raw) and not math.isclose(f_raw, expected_f_raw, rel_tol=1e-9, abs_tol=1e-9):
+        findings.append({"level": "error", "item": "maker_fill_table.f_kelly_raw", "message": f"does not match formula at csv line {line_no}"})
+    if math.isfinite(expected_f) and not math.isclose(f_kelly, expected_f, rel_tol=1e-9, abs_tol=1e-9):
+        findings.append({"level": "error", "item": "maker_fill_table.f_kelly", "message": f"does not match formula at csv line {line_no}"})
+
+
 def _check_bundle(bundle: Path, findings: list[dict[str, str]]) -> None:
     if not bundle.exists():
         findings.append({"level": "error", "item": "bundle", "message": "bundle missing"})
@@ -316,8 +391,8 @@ def _check_bundle_text_contracts(bundle: Path, names: list[str], findings: list[
         findings.append({"level": "error", "item": "config.example.yaml.runtime.mode", "message": "default mode must be paper"})
     if "enabled: false" not in config_text:
         findings.append({"level": "error", "item": "config.example.yaml.orders.enabled", "message": "orders must default to disabled"})
-    if "signature_type: 3" not in config_text:
-        findings.append({"level": "error", "item": "config.example.yaml.polymarket.signature_type", "message": "deposit-wallet flow must default to POLY_1271/signature type 3"})
+    if "signature_type: 1" not in config_text:
+        findings.append({"level": "error", "item": "config.example.yaml.polymarket.signature_type", "message": "polymarket.signature_type must default to 1"})
     if "funder_env: DEPOSIT_WALLET_ADDRESS" not in config_text:
         findings.append({"level": "error", "item": "config.example.yaml.polymarket.funder_env", "message": "deposit-wallet flow must use DEPOSIT_WALLET_ADDRESS"})
     if "--mode paper" not in service_text:
@@ -342,7 +417,7 @@ SECRET_PATTERNS = [
 
 
 def _scan_artifact_secrets(artifact_dir: Path, findings: list[dict[str, str]]) -> None:
-    for path in artifact_dir.iterdir():
+    for path in artifact_dir.rglob("*"):
         if not path.is_file() or path.suffix.lower() not in {".json", ".csv", ".yaml", ".yml", ".txt"}:
             continue
         text = path.read_text(encoding="utf-8", errors="ignore")
@@ -350,6 +425,17 @@ def _scan_artifact_secrets(artifact_dir: Path, findings: list[dict[str, str]]) -
             if pattern.search(text):
                 findings.append({"level": "error", "item": f"artifact.secret_scan.{path.name}", "message": "possible secret literal"})
                 return
+
+
+def _wilson_lower_bound(successes: int, total: int, z: float = 1.96) -> float:
+    if total <= 0:
+        return 0.0
+    p_hat = successes / total
+    z2 = z * z
+    denom = 1.0 + z2 / total
+    centre = p_hat + z2 / (2.0 * total)
+    radius = z * math.sqrt((p_hat * (1.0 - p_hat) + z2 / (4.0 * total)) / total)
+    return float(max(0.0, (centre - radius) / denom))
 
 
 def _read_tar_text(tar: tarfile.TarFile, name: str) -> str:

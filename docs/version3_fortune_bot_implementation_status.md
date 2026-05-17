@@ -182,20 +182,23 @@ execution_engine/deploy/early_trade_label_v1/maker_fill_table_metadata.json
 execution_engine/deploy/early_trade_label_v1/maker_fill_table_summary.csv
 ```
 
-The table has 41,800 rows. Each row is one candidate action under one context:
+The current Kelly hold-to-end table has one candidate limit price under one
+target-token context:
 
 ```text
-context: prediction_side, decision_time_regime, current_price_bucket
-action: submit_second_anchor, limit_price_anchor
-a_win_market_fill: P(fill | win, context, action)
-a_lose_market_fill: P(fill | lose, context, action)
+context: decision_time_regime, current_price_bucket
+action: limit_price_anchor
+ranking: f_kelly descending
+q_used_default: q_market_LCB
+kelly_a_win_used: a_win_LCB
+a_lose_assumption: 1.0
 ```
 
 `a_win_market_fill` is computed from historical BTC 5m markets by asking:
-after the planned submit second, did the predicted token have a taker SELL at
-or below the limit price before market end, conditional on the prediction side
-eventually winning? `a_lose_market_fill` is exported for audit, while runtime EV
-uses the conservative document assumption `P(fill | lose)=1.0`.
+from decision time to market end, did the target token have a taker SELL at or
+below the limit price? Runtime submits immediately, holds to market end, rejects
+crossing candidates where `limit_price_anchor >= current_price`, and ranks
+tradeable candidates by `f_kelly`, not raw edge.
 
 The generated fallback distribution is:
 

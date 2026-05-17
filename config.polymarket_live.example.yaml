@@ -20,8 +20,16 @@ thresholds:
 
 orders:
   enabled: false
-  planner: maker_ev
-  max_total_budget_usdc: 7.0
+  planner: best_bid_ladder
+  kelly_fallback_enabled: false
+  best_bid_ladder_max_price: 0.80
+  best_bid_ladder_second_offset: 0.10
+  best_bid_ladder_shares: 5.0
+  fractional_kelly: 0.25
+  min_alpha_margin: 0.02
+  min_q_margin: 0.02
+  min_f_kelly: 0.005
+  max_total_budget_usdc: 10.0
   max_order_budget_usdc: 4.0
   min_shares: 5.0
   max_orders_per_window: 3
@@ -29,13 +37,18 @@ orders:
   tick_size: 0.01
   min_price: 0.01
   max_price: 0.99
+  max_limit_price: 0.80
+  min_market_count: 20
+  allowed_fallback_levels:
+    - level_0
+    - level_1
 
 polymarket:
   host: https://clob.polymarket.com
   gamma_base_url: https://gamma-api.polymarket.com
   data_api_url: https://data-api.polymarket.com
   chain_id: 137
-  signature_type: 3
+  signature_type: 1
   private_key_env: POLYMARKET_PRIVATE_KEY
   api_key_env: CLOB_API_KEY
   api_secret_env: CLOB_SECRET

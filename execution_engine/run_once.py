@@ -15,8 +15,9 @@ import pandas as pd
 from execution_engine.config import load_engine_config
 from execution_engine.feature_source import load_feature_row
 from execution_engine.idempotency import filter_new_orders, load_seen, mark_orders
-from execution_engine.maker_order_plan import PlannerLimits, build_order_plan
+from execution_engine.maker_order_plan import BestBidLadderConfig, PlannerLimits, build_best_bid_ladder_plan, build_order_plan
 from execution_engine.polymarket_adapter import PolymarketOrderRequest, submit_limit_buy_orders
+from execution_engine.polymarket_adapter import get_best_bid as fetch_polymarket_best_bid
 from early_trade_label.threshold_search import apply_policy
 
 
@@ -41,6 +42,7 @@ def run_once(config_path: Path, mode: str | None = None, print_json: bool = Fals
     maker_fill_table = pd.read_parquet(fill_table_path) if fill_table_path.suffix.lower() == ".parquet" else pd.read_csv(fill_table_path)
     current_price = float(row.get(f"{decision}_token_last_price", 0.5)) if decision in {"up", "down"} else 0.5
     token_id = _token_id_for_side(row, decision)
+    best_bid = _best_bid_for_side(cfg, row, decision, token_id, runtime_mode)
     plan = {
         "prediction_side": decision,
         "q": None,
@@ -50,25 +52,26 @@ def run_once(config_path: Path, mode: str | None = None, print_json: bool = Fals
         "skip_reasons": {"model_abstained": 1},
     }
     if decision in {"up", "down"}:
-        plan = build_order_plan(
-            prediction_side=decision,
-            p_up=p_up,
-            current_price=current_price,
-            maker_fill_table=maker_fill_table,
-            validation_metrics=manifest["validation_metrics"],
-            probability_reference=probability_reference,
-            calibrated_probability_available=bool(manifest.get("calibrator_file")),
-            limits=PlannerLimits(
-                max_total_budget_usdc=cfg.orders.max_total_budget_usdc,
-                max_order_budget_usdc=cfg.orders.max_order_budget_usdc,
-                min_shares=cfg.orders.min_shares,
-                max_orders_per_window=cfg.orders.max_orders_per_window,
-                tick_size=cfg.orders.tick_size,
-                min_price=cfg.orders.min_price,
-                max_price=cfg.orders.max_price,
-            ),
-            market_key=str(row.get("condition_id", "unknown")),
-        )
+        if cfg.orders.planner == "best_bid_ladder":
+            plan = build_best_bid_ladder_plan(
+                prediction_side=decision,
+                best_bid=best_bid,
+                current_price=current_price,
+                market_key=str(row.get("condition_id", "unknown")),
+                config=BestBidLadderConfig(
+                    max_price=cfg.orders.best_bid_ladder_max_price,
+                    second_offset=cfg.orders.best_bid_ladder_second_offset,
+                    shares=cfg.orders.best_bid_ladder_shares,
+                    tick_size=cfg.orders.tick_size,
+                    min_price=cfg.orders.min_price,
+                ),
+            )
+            if not plan["selected_orders"] and cfg.orders.kelly_fallback_enabled:
+                plan = _build_kelly_plan(cfg, decision, p_up, current_price, maker_fill_table, manifest, probability_reference, row)
+        elif cfg.orders.planner == "maker_kelly":
+            plan = _build_kelly_plan(cfg, decision, p_up, current_price, maker_fill_table, manifest, probability_reference, row)
+        else:
+            plan["skip_reasons"] = {f"unsupported_planner:{cfg.orders.planner}": 1}
     store = load_seen(cfg.runtime.idempotency_store_path)
     selected_orders, duplicate_orders = filter_new_orders(plan["selected_orders"], store)
     if duplicate_orders:
@@ -83,7 +86,7 @@ def run_once(config_path: Path, mode: str | None = None, print_json: bool = Fals
             live_requests.append(
                 PolymarketOrderRequest(
                     token_id=token_id,
-                    price=float(order["limit_price"]),
+                    price=float(order["limit_price_anchor"]),
                     shares=float(order["shares"]),
                     order_key=str(order["order_key"]),
                 )
@@ -103,6 +106,8 @@ def run_once(config_path: Path, mode: str | None = None, print_json: bool = Fals
         "p_down": 1.0 - p_up,
         "thresholds": {"t_up": thresholds["t_up"], "t_down": thresholds["t_down"]},
         "decision": decision,
+        "planner": cfg.orders.planner,
+        "best_bid": best_bid,
         "q": plan.get("q"),
         "q_source": plan.get("q_source"),
         "candidate_orders": plan["candidate_orders"],
@@ -131,6 +136,59 @@ def _token_id_for_side(row: pd.Series, decision: str) -> str | None:
     if decision == "down":
         return _clean_token(row.get("down_token_id") or row.get("_down_token_id"))
     return None
+
+
+def _best_bid_for_side(cfg: Any, row: pd.Series, decision: str, token_id: str | None, runtime_mode: str) -> float | None:
+    if decision not in {"up", "down"}:
+        return None
+    for col in [f"{decision}_token_best_bid", f"{decision}_best_bid", f"_{decision}_token_best_bid"]:
+        value = row.get(col)
+        if value is not None and not pd.isna(value):
+            return float(value)
+    if runtime_mode == "live":
+        if not token_id:
+            return None
+        return fetch_polymarket_best_bid(cfg.polymarket, token_id)
+    value = row.get(f"{decision}_token_last_price", 0.5)
+    return float(value) if value is not None and not pd.isna(value) else None
+
+
+def _build_kelly_plan(
+    cfg: Any,
+    decision: str,
+    p_up: float,
+    current_price: float,
+    maker_fill_table: pd.DataFrame,
+    manifest: dict[str, Any],
+    probability_reference: dict[str, Any] | None,
+    row: pd.Series,
+) -> dict[str, Any]:
+    return build_order_plan(
+        prediction_side=decision,
+        p_up=p_up,
+        current_price=current_price,
+        maker_fill_table=maker_fill_table,
+        validation_metrics=manifest["validation_metrics"],
+        probability_reference=probability_reference,
+        calibrated_probability_available=bool(manifest.get("calibrator_file")),
+        limits=PlannerLimits(
+            max_total_budget_usdc=cfg.orders.max_total_budget_usdc,
+            max_order_budget_usdc=cfg.orders.max_order_budget_usdc,
+            min_shares=cfg.orders.min_shares,
+            max_orders_per_window=cfg.orders.max_orders_per_window,
+            fractional_kelly=cfg.orders.fractional_kelly,
+            min_alpha_margin=cfg.orders.min_alpha_margin,
+            min_q_margin=cfg.orders.min_q_margin,
+            min_f_kelly=cfg.orders.min_f_kelly,
+            tick_size=cfg.orders.tick_size,
+            min_price=cfg.orders.min_price,
+            max_price=cfg.orders.max_price,
+            max_limit_price=cfg.orders.max_limit_price,
+            min_market_count=cfg.orders.min_market_count,
+            allowed_fallback_levels=cfg.orders.allowed_fallback_levels,
+        ),
+        market_key=str(row.get("condition_id", "unknown")),
+    )
 
 
 def _clean_token(value: Any) -> str | None:
@@ -230,6 +288,8 @@ def _build_audit_event(summary: dict[str, Any]) -> dict[str, Any]:
         "p_down": summary["p_down"],
         "thresholds": summary["thresholds"],
         "decision": summary["decision"],
+        "planner": summary.get("planner"),
+        "best_bid": summary.get("best_bid"),
         "q": summary["q"],
         "q_source": summary["q_source"],
         "candidate_order_count": len(summary["candidate_orders"]),
@@ -238,12 +298,32 @@ def _build_audit_event(summary: dict[str, Any]) -> dict[str, Any]:
             {
                 "order_key": order["order_key"],
                 "prediction_side": order["prediction_side"],
-                "limit_price": order["limit_price"],
+                "limit_price_anchor": order["limit_price_anchor"],
                 "shares": order["shares"],
                 "budget_usdc": order["budget_usdc"],
-                "edge": order["edge"],
+                "edge": order.get("edge"),
+                "planner": order.get("planner"),
+                "ladder_level": order.get("ladder_level"),
+                "order_type": order.get("order_type"),
+                "q_market": order.get("q_market"),
+                "q_model": order.get("q_model"),
+                "q_used": order.get("q_used"),
+                "q_required": order.get("q_required"),
+                "q_margin": order.get("q_margin"),
+                "f_kelly_raw": order.get("f_kelly_raw"),
+                "f_kelly": order.get("f_kelly"),
+                "fractional_kelly": order.get("fractional_kelly"),
                 "maker_only": order["maker_only"],
                 "fallback_level": order.get("fallback_level"),
+                "decision_time_regime": order.get("decision_time_regime"),
+                "current_price_bucket": order.get("current_price_bucket"),
+                "a_win_market_fill": order.get("a_win_market_fill"),
+                "a_win_raw": order.get("a_win_raw"),
+                "a_win_LCB": order.get("a_win_LCB"),
+                "a_lose_assumption": order.get("a_lose_assumption"),
+                "win_market_count": order.get("win_market_count"),
+                "lose_market_count": order.get("lose_market_count"),
+                "q_market_LCB": order.get("q_market_LCB"),
             }
             for order in summary["selected_orders"]
         ],

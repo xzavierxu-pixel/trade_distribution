@@ -9,8 +9,16 @@ from typing import Any
 @dataclass(frozen=True)
 class OrdersConfig:
     enabled: bool = False
-    planner: str = "maker_ev"
-    max_total_budget_usdc: float = 7.0
+    planner: str = "best_bid_ladder"
+    kelly_fallback_enabled: bool = False
+    best_bid_ladder_max_price: float = 0.80
+    best_bid_ladder_second_offset: float = 0.10
+    best_bid_ladder_shares: float = 5.0
+    fractional_kelly: float = 0.25
+    min_alpha_margin: float = 0.02
+    min_q_margin: float = 0.02
+    min_f_kelly: float = 0.005
+    max_total_budget_usdc: float = 10.0
     max_order_budget_usdc: float = 4.0
     min_shares: float = 5.0
     max_orders_per_window: int = 3
@@ -18,6 +26,9 @@ class OrdersConfig:
     tick_size: float = 0.01
     min_price: float = 0.01
     max_price: float = 0.99
+    max_limit_price: float = 0.80
+    min_market_count: int = 20
+    allowed_fallback_levels: tuple[str, ...] = ("level_0", "level_1")
 
 
 @dataclass(frozen=True)
@@ -48,7 +59,7 @@ class PolymarketConfig:
     gamma_base_url: str = "https://gamma-api.polymarket.com"
     data_api_url: str = "https://data-api.polymarket.com"
     chain_id: int = 137
-    signature_type: int = 3
+    signature_type: int = 1
     private_key_env: str = "POLYMARKET_PRIVATE_KEY"
     api_key_env: str = "CLOB_API_KEY"
     api_secret_env: str = "CLOB_SECRET"
@@ -93,8 +104,16 @@ def load_engine_config(path: str | Path) -> EngineConfig:
         ),
         orders=OrdersConfig(
             enabled=bool(orders.get("enabled", False)),
-            planner=str(orders.get("planner", "maker_ev")),
-            max_total_budget_usdc=float(orders.get("max_total_budget_usdc", 7.0)),
+            planner=str(orders.get("planner", "best_bid_ladder")),
+            kelly_fallback_enabled=bool(orders.get("kelly_fallback_enabled", False)),
+            best_bid_ladder_max_price=float(orders.get("best_bid_ladder_max_price", 0.80)),
+            best_bid_ladder_second_offset=float(orders.get("best_bid_ladder_second_offset", 0.10)),
+            best_bid_ladder_shares=float(orders.get("best_bid_ladder_shares", 5.0)),
+            fractional_kelly=float(orders.get("fractional_kelly", 0.25)),
+            min_alpha_margin=float(orders.get("min_alpha_margin", 0.02)),
+            min_q_margin=float(orders.get("min_q_margin", 0.02)),
+            min_f_kelly=float(orders.get("min_f_kelly", 0.005)),
+            max_total_budget_usdc=float(orders.get("max_total_budget_usdc", 10.0)),
             max_order_budget_usdc=float(orders.get("max_order_budget_usdc", 4.0)),
             min_shares=float(orders.get("min_shares", 5.0)),
             max_orders_per_window=int(orders.get("max_orders_per_window", 3)),
@@ -102,13 +121,16 @@ def load_engine_config(path: str | Path) -> EngineConfig:
             tick_size=float(orders.get("tick_size", 0.01)),
             min_price=float(orders.get("min_price", 0.01)),
             max_price=float(orders.get("max_price", 0.99)),
+            max_limit_price=float(orders.get("max_limit_price", 0.80)),
+            min_market_count=int(orders.get("min_market_count", 20)),
+            allowed_fallback_levels=tuple(orders.get("allowed_fallback_levels", ["level_0", "level_1"])),
         ),
         polymarket=PolymarketConfig(
             host=str(polymarket.get("host", "https://clob.polymarket.com")),
             gamma_base_url=str(polymarket.get("gamma_base_url", "https://gamma-api.polymarket.com")),
             data_api_url=str(polymarket.get("data_api_url", "https://data-api.polymarket.com")),
             chain_id=int(polymarket.get("chain_id", 137)),
-            signature_type=int(polymarket.get("signature_type", 3)),
+            signature_type=int(polymarket.get("signature_type", 1)),
             private_key_env=str(polymarket.get("private_key_env", "POLYMARKET_PRIVATE_KEY")),
             api_key_env=str(polymarket.get("api_key_env", "CLOB_API_KEY")),
             api_secret_env=str(polymarket.get("api_secret_env", "CLOB_SECRET")),
